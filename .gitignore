@@ -1,3 +1,4 @@
 buid/
 node_modules/
 secrets.json
+.deps/
