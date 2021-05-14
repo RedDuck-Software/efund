@@ -1,4 +1,4 @@
-buid/
+build/
 node_modules/
 secrets.json
 .deps/
