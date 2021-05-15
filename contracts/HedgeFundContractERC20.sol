@@ -1,13 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
 
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
-import "@uniswap/v2-periphery/contracts/UniswapV2Router02.sol";
-
-import {
-    ERC20 as OZERC20,
-    IERC20 as OZIERC20
-} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "./SharedImports.sol"
 
 interface HedgeFundContractInterface {
     function testGetAmountsIn(address[] calldata path, uint256 amountOut)
@@ -24,11 +18,13 @@ interface HedgeFundContractInterface {
 
     function getUniswapAddress() external view returns (address payable);
 
-    function makeDepositETH() external payable;
+    function makeDepositInETH() external payable;
 
-    function makeDepositERC20(address contractAddress, uint256 amount) external;
+    function makeDepositInERC20(address contractAddress, uint256 amount) external;
 
     function makeDepositInDefaultToken(uint256 amount) external;
+
+    function withdraw() external;
 }
 
 contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
@@ -39,16 +35,20 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
     address payable private uniswapv2RouterAddress =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
-    uint256 public immutable withdrawPeroid = 60 * 60 * 24 * 10; // ten days
+    //uint256 public immutable withdrawPeriod = 60 * 60 * 24 * 10; // ten days
 
-    uint256 public immutable minimalDepositAmountInWEI =
-        1000000000000000000 / 2;
+    //uint256 public immutable minimalDepositAmountInWEI =
+   //     1000000000000000000 / 2;
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    address public defalutDepositTokenAddress;
+    //uint256 public immutable minimumDepositTime = 7 * 24 * 60 * 60; //  30 days (time after withraw can be available)
 
-    uint256 public lastWidthrow;
+
+    //address public defalutDepositTokenAddress;
+
+    //address public contractOwner;
+
 
     constructor(address _defaultDepositTokenAddress)
         public
@@ -56,6 +56,7 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
     {
         router = UniswapV2Router02(uniswapv2RouterAddress);
         defalutDepositTokenAddress = _defaultDepositTokenAddress;
+        contractOwner = msg.sender;
     }
 
     function testGetAmountsIn(address[] calldata path, uint256 amountOut)
@@ -95,7 +96,7 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
         token.transferFrom(msg.sender, address(this), amount);
     }
 
-    function makeDepositERC20(address contractAddress, uint256 amount)
+    function makeDepositInERC20(address contractAddress, uint256 amount)
         external
         override
     {
@@ -122,7 +123,7 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
         deposits.push(deposit);
     }
 
-    function makeDepositETH() external payable override {
+    function makeDepositInETH() external payable override {
         require(
             msg.value > minimalDepositAmountInWEI,
             "Transaction value is less then minimum deposit amout"
@@ -144,15 +145,33 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
             );
 
         DepositInfo memory deposit =
-            DepositInfo(msg.sender, amounts[1], address(0), false);
+            DepositInfo(msg.sender, amounts[1], address(0), withdraw, block.timestamp + minimumDepositTime , false);
 
         deposits.push(deposit);
     }
 
+    function withdraw() external override  {
+        for(uint i; i < deposits.length; i++) {
+            if(deposits[i].withdrawTime > block.timestamp || deposits[i].isWithdrawed) continue;
+            _withdraw(deposits[i]);
+        }   
+    }
+
+
+
+    function _withdraw(DepositInfo storage info) private { 
+        
+    }
+    
+    struct Fund {
+
+    }
+    
     struct DepositInfo {
         address depositOwner;
         uint256 depositAmount; // deposit amount in WETH
         address depositContractAddress; // address of the erc20 token, from which deposit was made. 0 - if deposit in ETH
+        uint256 withdrawTime; // time when withdraw will be available
         bool isWithdrawed;
     }
 }
