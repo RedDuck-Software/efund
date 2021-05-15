@@ -2,21 +2,12 @@
 pragma solidity ^0.6.6;
 
 import "./SharedImports.sol"
+import "./Interfaces/"
 
-interface HedgeFundContractInterface {
- 
-    function getWETH() external view returns (address);
 
-    function makeDepositInETH() external payable;
 
-    function makeDepositInERC20(address contractAddress, uint256 amount) external;
 
-    function makeDepositInDefaultToken(uint256 amount) external;
-
-    function withdraw() external;
-}
-
-contract HedgeFund is TestContractInterface {
+contract HedgeFund is IHedgeFund {
     UniswapV2Router02 private router;
 
     DepositInfo[] public deposits;
@@ -26,28 +17,45 @@ contract HedgeFund is TestContractInterface {
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    //uint256 public immutable minimumDepositTime = 7 * 24 * 60 * 60; //  30 days (time after withraw can be available)
-
-
-    //address public defalutDepositTokenAddress;
-
-
     uint256 immutable public hardCap = 100000000000000000000;
 
     FundStatus public fundStatus;
 
     address public fundManager;
 
-    constructor(address managerAddress)
+    int public fundDurationMonths;
+
+    uint256 public fundStartTimestamp;
+
+    uint256 public baseBalance;
+
+    uint256 public endBalance;
+
+
+    modifier onlyForFundManager() {
+        require(msg.sender == fundManager, "You have not permissions to this action");
+
+        _;
+    }
+
+    constructor(address managerAddress, int durationMonths)
         public
     {
+        require(_validateDuration(durationMonths), "Invalid duration");
         router = UniswapV2Router02(uniswapv2RouterAddress);
         fundManager = managerAddress;
         fundStatus = FundStatus.OPENED;
+        fundDurationMonths = duration;
+        fundStartTimestamp = block.timestamp;
     }
 
     function getWETH() external view override returns (address) {
         return router.WETH();
+    }
+
+    function setFundStatusActive() public onlyForFundManager { 
+        fundStatus = FundStatus.ACTIVE;
+        baseBalance = address(this).balance;
     }
 
     function makeDepositInDefaultToken(uint256 amount) external override {
@@ -111,26 +119,32 @@ contract HedgeFund is TestContractInterface {
     }
 
     function withdraw() external override  {
+        require(fundStartTimestamp +  _monthToSeconds(fundDurationMonths) < block.timestamp, "Fund is not complited yet");
         for(uint i; i < deposits.length; i++) {
-            if(deposits[i].withdrawTime > block.timestamp || deposits[i].isWithdrawed) continue;
             _withdraw(deposits[i]);
         }   
     }
 
 
+    function _monthToSeconds(int _m) view {
+        return _m * 30 * 24 * 60 * 60;
+    }
 
-    function _withdraw(DepositInfo storage info) private { 
-        
+    function _withdraw(DepositInfo storage info) private {
+        info.depositOwner.transfer(info.depositAmount);
+    }
+
+    function _validateDuration(int _d) private returns (bool){ 
+        return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
     
-
     enum FundStatus { OPENED, ACTIVE, COMPLETED, CLOSED}
 
     struct DepositInfo {
         address depositOwner;
-        uint256 depositAmount; // deposit amount in WETH
-        address depositContractAddress; // address of the erc20 token, from which deposit was made. 0 - if deposit in ETH
-        uint256 withdrawTime; // time when withdraw will be available
-        bool isWithdrawed;
+        uint256 depositAmount; // deposit amount in ETH
+        //address depositContractAddress; // address of the erc20 token, from which deposit was made. 0 - if deposit in ETH
+        //uint256 withdrawTime; // time when withdraw will be available
+        //bool isWithdrawed;
     }
 }
