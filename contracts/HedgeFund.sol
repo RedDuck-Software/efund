@@ -4,19 +4,8 @@ pragma solidity ^0.6.6;
 import "./SharedImports.sol"
 
 interface HedgeFundContractInterface {
-    function testGetAmountsIn(address[] calldata path, uint256 amountOut)
-        external
-        view
-        returns (uint256[] memory);
-
-    function testGetAmountsOut(address[] calldata path, uint256 amountIn)
-        external
-        view
-        returns (uint256[] memory);
-
+ 
     function getWETH() external view returns (address);
-
-    function getUniswapAddress() external view returns (address payable);
 
     function makeDepositInETH() external payable;
 
@@ -27,18 +16,13 @@ interface HedgeFundContractInterface {
     function withdraw() external;
 }
 
-contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
+contract HedgeFund is TestContractInterface {
     UniswapV2Router02 private router;
 
     DepositInfo[] public deposits;
 
     address payable private uniswapv2RouterAddress =
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
-
-    //uint256 public immutable withdrawPeriod = 60 * 60 * 24 * 10; // ten days
-
-    //uint256 public immutable minimalDepositAmountInWEI =
-   //     1000000000000000000 / 2;
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
@@ -47,47 +31,23 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
 
     //address public defalutDepositTokenAddress;
 
-    //address public contractOwner;
 
+    uint256 immutable public hardCap = 100000000000000000000;
 
-    constructor(address _defaultDepositTokenAddress)
+    FundStatus public fundStatus;
+
+    address public fundManager;
+
+    constructor(address managerAddress)
         public
-        OZERC20("hedge", "hg")
     {
         router = UniswapV2Router02(uniswapv2RouterAddress);
-        defalutDepositTokenAddress = _defaultDepositTokenAddress;
-        contractOwner = msg.sender;
-    }
-
-    function testGetAmountsIn(address[] calldata path, uint256 amountOut)
-        external
-        view
-        override
-        returns (uint256[] memory)
-    {
-        return router.getAmountsIn(amountOut, path);
-    }
-
-    function testGetAmountsOut(address[] calldata path, uint256 amountIn)
-        external
-        view
-        override
-        returns (uint256[] memory)
-    {
-        return router.getAmountsOut(amountIn, path);
+        fundManager = managerAddress;
+        fundStatus = FundStatus.OPENED;
     }
 
     function getWETH() external view override returns (address) {
         return router.WETH();
-    }
-
-    function getUniswapAddress()
-        external
-        view
-        override
-        returns (address payable)
-    {
-        return uniswapv2RouterAddress;
     }
 
     function makeDepositInDefaultToken(uint256 amount) external override {
@@ -163,10 +123,9 @@ contract HedgeFundContractERC20 is OZERC20, TestContractInterface {
         
     }
     
-    struct Fund {
 
-    }
-    
+    enum FundStatus { OPENED, ACTIVE, COMPLETED, CLOSED}
+
     struct DepositInfo {
         address depositOwner;
         uint256 depositAmount; // deposit amount in WETH
