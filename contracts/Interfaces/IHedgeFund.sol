@@ -8,4 +8,6 @@ interface IHedgeFund {
     function makeDepositInETH() external payable;
 
     function withdraw() external;
+
+    function widthrawBeforeFundStarted() external;
 }

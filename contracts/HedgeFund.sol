@@ -35,7 +35,6 @@ contract HedgeFund is IHedgeFund {
             msg.sender == fundManager,
             "You have not permissions to this action"
         );
-
         _;
     }
 
@@ -57,6 +56,14 @@ contract HedgeFund is IHedgeFund {
         baseBalance = address(this).balance;
     }
 
+    function setFundStatusComplited() public onlyForFundManager {
+        require(fundStartTimestamp + _monthToSeconds(fundDurationMonths) <
+                block.timestamp,"");
+
+        fundStatus = FundStatus.COMPLETED;
+        endBalance = address(this).balance;
+    }
+
     function makeDepositInETH() external payable override {
         require(
             msg.value >= softCap && msg.value <= hardCap,
@@ -68,10 +75,22 @@ contract HedgeFund is IHedgeFund {
         deposits.push(deposit);
     }
 
-    function withdraw() external override {
+    // call this method, if you want widthrow your deposits before trading period started
+    function widthrawBeforeFundStarted() external override { 
         require(
-            fundStartTimestamp + _monthToSeconds(fundDurationMonths) <
-                block.timestamp,
+            fundStatus == FundStatus.OPENED, 
+            "Fund is already started"
+        );
+        
+        for(uint i=0; i < deposits.length; i++)  { 
+            if(deposits[i].depositOwner == payable(msg.sender)) 
+                _withdraw(deposits[i]);
+        }
+    }
+
+    function withdraw() external override  {
+        require(
+            fundStatus == FundStatus.COMPLETED,
             "Fund is not complited yet"
         );
 
@@ -81,7 +100,6 @@ contract HedgeFund is IHedgeFund {
     }
 
     function _monthToSeconds(uint256 _m) private pure returns (uint256) {
-        // uint256 val =
         return uint256(_m) * 30 * 24 * 60 * 60;
     }
 
@@ -89,6 +107,7 @@ contract HedgeFund is IHedgeFund {
         info.depositOwner.transfer(info.depositAmount);
     }
 
+    // validate hendge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
         return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
