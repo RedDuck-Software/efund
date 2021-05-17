@@ -3,9 +3,12 @@ pragma solidity ^0.6.6;
 
 import "./SharedImports.sol";
 import "./Interfaces/IHedgeFund.sol";
+import "./FundFactory.sol";
 
 contract HedgeFund is IHedgeFund {
     UniswapV2Router02 private router;
+
+    FundFactory private factory;
 
     DepositInfo[] public deposits;
 
@@ -13,10 +16,6 @@ contract HedgeFund is IHedgeFund {
         0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
-
-    uint256 public immutable hardCap = 100000000000000000000;
-
-    uint256 public immutable softCap = 100000000000000000;
 
     FundStatus public fundStatus;
 
@@ -38,13 +37,15 @@ contract HedgeFund is IHedgeFund {
         _;
     }
 
-    constructor(address managerAddress, uint256 durationMonths) public {
-        require(_validateDuration(durationMonths), "Invalid duration");
+    constructor(address _factoryAddress, address _managerAddress, uint256 _durationMonths) public {
+        require(_validateDuration(_durationMonths), "Invalid duration");
         router = UniswapV2Router02(uniswapv2RouterAddress);
-        fundManager = managerAddress;
+        factory= FundFactory(_factoryAddress);
+        fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDurationMonths = durationMonths;
+        fundDurationMonths = _durationMonths;
         fundStartTimestamp = block.timestamp;
+        // factoryAddress = _factoryAddress;
     }
 
     function getWETH() external view override returns (address) {
@@ -66,7 +67,7 @@ contract HedgeFund is IHedgeFund {
 
     function makeDepositInETH() external payable override {
         require(
-            msg.value >= softCap && msg.value <= hardCap,
+            msg.value >= factory.softCap() && msg.value <= factory.hardCap(),
             "Transaction value is less then minimum deposit amout"
         );
 
