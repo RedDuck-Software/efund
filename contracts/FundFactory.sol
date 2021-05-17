@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.6;
+pragma solidity ^0.6.6; // because of uniswap
 
 import "./SharedImports.sol";
 import "./HedgeFund.sol";
@@ -11,14 +11,21 @@ contract FundFactory is IHedgeFactory {
 
     address[] public funds;
 
-    function createFund(uint _fundDurationInMonths) external override payable returns(IHedgeFund fundAddress) { 
-        require(msg.value >= softCap && msg.value <= hardCap, "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH");
+    function createFund(uint _fundDurationInMonths) external payable override returns(address fundAddress) { 
+       require(msg.value >= softCap && msg.value <= hardCap, "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH");
 
-        HedgeFund newFund = new HedgeFund(address(this), msg.sender, _fundDurationInMonths);
+        HedgeFund newFund = new HedgeFund(softCap, hardCap, msg.sender, _fundDurationInMonths);
         
-        payable(address(newFund)).transfer(msg.value);
+        _sendEth(payable(address(newFund)), msg.value);
+
         funds.push(address(newFund));
 
-        return newFund;
+        return address(newFund);
+    }
+
+    // todo: ask guys in chats
+    function _sendEth(address payable _to, uint256 _value) private  returns (bool){
+        (bool sent, ) = _to.call{value: _value}("");
+        require(sent, "could not send ether to the fund");
     }
 }
