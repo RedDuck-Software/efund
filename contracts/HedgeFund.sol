@@ -7,6 +7,8 @@ import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {
+    using OZSafeMath for uint256;
+
     UniswapV2Router02 private router;
 
     DepositInfo[] public deposits;
@@ -27,13 +29,15 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public fundStartTimestamp;
 
+    uint256 public fundEndTimestamp;
+
     uint256 public baseBalance;
 
     uint256 public endBalance;
 
-    address[] boughtTokenAddresses;
+    address payable[] boughtTokenAddresses;
 
-    address[] allowedTokenAddresses;
+    address payable[] allowedTokenAddresses;
 
     modifier onlyForFundManager() {
         require(
@@ -43,19 +47,26 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _;
     }
 
+    modifier onlyInActiveState() {
+        require(
+            fundStatus == FundStatus.ACTIVE,
+            "Fund should be in an Active status"
+        );
+        _;
+    }
+
     constructor(
         uint256 _softCap,
         uint256 _hardCap,
         address _managerAddress,
         uint256 _durationMonths,
-        address[] memory _allowedTokenAddresses
+        address payable[] memory _allowedTokenAddresses
     ) public {
         require(_validateDuration(_durationMonths), "Invalid duration");
         router = UniswapV2Router02(uniswapv2RouterAddress);
         fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
         fundDurationMonths = _durationMonths;
-        fundStartTimestamp = block.timestamp;
         softCap = _softCap;
         hardCap = _hardCap;
         allowedTokenAddresses = _allowedTokenAddresses;
@@ -65,24 +76,35 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return router.WETH();
     }
 
-    function setFundStatusActive() public onlyForFundManager {
+    function setFundStatusActive() external override onlyForFundManager {
         fundStatus = FundStatus.ACTIVE;
         baseBalance = address(this).balance;
+        fundStartTimestamp = block.timestamp;
     }
 
-    function setFundStatusCompleted() public onlyForFundManager {
+    function setFundStatusCompleted() external override {
         require(
             fundStartTimestamp + _monthToSeconds(fundDurationMonths) <
                 block.timestamp,
             "Fund is didn`t finish yet"
         );
+        fundEndTimestamp = block.timestamp;
 
         _swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
-        endBalance = address(this).balance;
 
+        endBalance = address(this).balance;
         this.withdraw();
+        this.setFundStatusClosed();
+    }
+
+    function setFundStatusClosed() external override {
+        require(
+            fundStatus = FundStatus.COMPLETED,
+            "Fund must be completed to become closed"
+        );
+        fundStatus = FundStatus.CLOSED;
     }
 
     function makeDepositInETH() external payable override {
@@ -115,18 +137,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         for (uint256 i; i < deposits.length; i++) {
             _withdraw(deposits[i]);
         }
-
-        fundStatus = FundStatus.CLOSED;
     }
 
     /* trading section */
 
     function swapERC20ToERC20(
-        address tokenFrom,
-        address tokenTo,
+        address payable tokenFrom,
+        address payable tokenTo,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override returns (uint256) {
+    ) external override onlyInActiveState returns (uint256) {
         address[] memory path = new address[](2);
 
         require(
@@ -134,8 +154,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "You must to own {tokenFrom} first"
         );
         require(
-            _containsIn(allowedTokenAddresses, tokenFrom) &&
-                _containsIn(allowedTokenAddresses, tokenTo),
+            allowedTokenAddresses.length == 0
+                ? true // if empty array specified, all tokens are valid for trade
+                : _containsIn(allowedTokenAddresses, tokenFrom) &&
+                    _containsIn(allowedTokenAddresses, tokenTo),
             "Trading with not allowed tokens"
         );
 
@@ -159,15 +181,17 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        boughtTokenAddresses.push(tokenTo);
+        if (_containsIn(boughtTokenAddresses, tokenTo))
+            boughtTokenAddresses.push(tokenTo);
+
         return amounts[1];
     }
 
     function swapERC20ToETH(
-        address tokenFrom,
+        address payable tokenFrom,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override returns (uint256) {
+    ) external override onlyInActiveState returns (uint256) {
         address[] memory path = new address[](2);
 
         require(
@@ -198,57 +222,62 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return amounts[1];
     }
 
-    function swapETHToERC20(address tokenTo, uint256 amountOutMin)
-        external
-        override
-        returns (uint256)
-    {
-        // require(
-        //     _containsIn(allowedTokenAddresses, tokenTo),
-        //     "Trading with not allowed tokens"
-        // );
-        // address[] memory path = new address[](2);
-        // path[0] = router.WETH();
-        // path[1] = tokenTo;
-        // // how much {tokenTo} we can buy with ether
-        // uint256 amountOut = router.getAmountsOut(msg.value, path)[1];
-        // require(
-        //     amountOut >= amountOutMin,
-        //     "Output amount is lower then {amountOutMin}"
-        // );
-        // uint256[] memory amounts =
-        //     router.swapETHForExactTokens.value(...)(
-        //         amountOut,
-        //         path,
-        //         address(this),
-        //         block.timestamp + depositTXDeadlineSeconds
-        //     );
-        // boughtTokenAddresses.push(tokenTo);
-        // return amounts[1];
+    function swapETHToERC20(
+        address payable tokenTo,
+        uint256 amountIn,
+        uint256 amountOutMin
+    ) external override onlyInActiveState returns (uint256) {
+        require(
+            _containsIn(allowedTokenAddresses, tokenTo),
+            "Trading with not allowed tokens"
+        );
+
+        address[] memory path = new address[](2);
+        path[0] = router.WETH();
+        path[1] = tokenTo;
+        // how much {tokenTo} we can buy with ether
+        uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
+
+        require(
+            amountOut >= amountOutMin,
+            "Output amount is lower then {amountOutMin}"
+        );
+        uint256[] memory amounts =
+            router.swapETHForExactTokens{value: amountIn}(
+                amountOut,
+                path,
+                address(this),
+                block.timestamp + depositTXDeadlineSeconds
+            );
+        if (_containsIn(boughtTokenAddresses, tokenTo))
+            boughtTokenAddresses.push(tokenTo);
+        return amounts[1];
     }
 
     function swapERC20ToERC20(
-        address tokenFrom,
-        address tokenTo,
+        address payable tokenFrom,
+        address payable tokenTo,
         uint256 amountIn
-    ) external override returns (uint256) {
+    ) external override onlyInActiveState returns (uint256) {
         return this.swapERC20ToERC20(tokenFrom, tokenTo, amountIn, 0);
     }
 
-    function swapERC20ToETH(address tokenFrom, uint256 amountIn)
+    function swapERC20ToETH(address payable tokenFrom, uint256 amountIn)
         external
         override
+        onlyInActiveState
         returns (uint256)
     {
         return this.swapERC20ToETH(tokenFrom, amountIn, 0);
     }
 
-    function swapETHToERC20(address tokenTo)
+    function swapETHToERC20(address payable tokenTo, uint256 amountIn)
         external
         override
+        onlyInActiveState
         returns (uint256)
     {
-        this.swapETHToERC20(tokenTo, 0);
+        this.swapETHToERC20(tokenTo, amountIn, 0);
     }
 
     function _swapAllTokensIntoETH() private {
@@ -283,17 +312,17 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         pure
         returns (uint256)
     {
-        return uint256((all / 100) * p);
+        return uint256(all.div(100).mul(p));
     }
 
-    function _removeAt(address[] storage arr, uint256 i) private {
+    function _removeAt(address payable[] storage arr, uint256 i) private {
         if (arr.length == 0) return;
 
         arr[i] = arr[arr.length - 1];
         arr.pop();
     }
 
-    function _containsIn(address[] storage arr, address val)
+    function _containsIn(address payable[] storage arr, address val)
         private
         view
         returns (bool)

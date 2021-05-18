@@ -11,16 +11,25 @@ contract FundFactory is IHedgeFactory {
 
     address[] public funds;
 
-    function createFund(uint _fundDurationInMonths) external payable override returns(address fundAddress) { 
+    function createFund(uint _fundDurationInMonths, address payable[] calldata allowedTokens) external payable override returns(address fundAddress) { 
        require(msg.value >= softCap && msg.value <= hardCap, "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH");
 
-        HedgeFund newFund = new HedgeFund(softCap, hardCap, msg.sender, _fundDurationInMonths);
+        HedgeFund newFund = new HedgeFund(softCap, hardCap, msg.sender, _fundDurationInMonths, allowedTokens);
         
         _sendEth(payable(address(newFund)), msg.value);
 
         funds.push(address(newFund));
 
         return address(newFund);
+    }
+
+    function createFund(uint _fundDurationInMonths) external payable override returns(address fundAddress) { 
+        address payable[] memory allowedTokens = new address payable[](2);
+
+        allowedTokens[0] = 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa; // DAI
+        allowedTokens[1] = 0x7079f3762805CFf9C979a5bDC6f5648bCFEE76C8; // USDC
+
+        this.createFund(_fundDurationInMonths, allowedTokens);
     }
 
     // todo: ask guys in chats

@@ -10,4 +10,10 @@ interface IHedgeFund {
     function withdraw() external;
 
     function widthrawBeforeFundStarted() external;
+
+    function setFundStatusActive() external;
+
+    function setFundStatusCompleted() external;
+
+    function setFundStatusClosed() external;
 }
