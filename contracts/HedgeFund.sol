@@ -101,7 +101,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function setFundStatusClosed() external override {
         require(
-            fundStatus = FundStatus.COMPLETED,
+            fundStatus == FundStatus.COMPLETED,
             "Fund must be completed to become closed"
         );
         fundStatus = FundStatus.CLOSED;
