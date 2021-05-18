@@ -6,12 +6,54 @@ import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
 
-contract HedgeFund is IHedgeFund, IFundTrade {
+library AddressArrayExstensions {
+    function removeAt(address payable[] storage arr, uint256 i) internal {
+        if (arr.length == 0) return;
+
+        arr[i] = arr[arr.length - 1];
+        arr.pop();
+    }
+
+    function contains(address payable[] storage arr, address val)
+        internal
+        view
+        returns (bool)
+    {
+        for (uint256 i; i < arr.length; i++) {
+            if (arr[i] == val) return true;
+        }
+
+        return false;
+    }
+}
+
+library MathPercentage {
     using OZSafeMath for uint256;
+
+    function calculateNumberFromNumberProcentage(uint256 a, uint256 b)
+        internal
+        pure
+        returns (uint256)
+    {
+        return b.div(a).mul(100);
+    }
+
+    function calculateNumberFromProcentage(uint256 p, uint256 all)
+        internal
+        pure
+        returns (uint256)
+    {
+        return uint256(all.div(100).mul(p));
+    }
+}
+
+contract HedgeFund is IHedgeFund, IFundTrade {
+    using AddressArrayExstensions for address payable[];
 
     UniswapV2Router02 private router;
 
     DepositInfo[] public deposits;
+
     uint256 public softCap;
 
     uint256 public hardCap;
@@ -29,7 +71,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public fundStartTimestamp;
 
-    uint256 public fundEndTimestamp;
+    // todo: current balance
 
     uint256 public baseBalance;
 
@@ -72,6 +114,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         allowedTokenAddresses = _allowedTokenAddresses;
     }
 
+    function getEndTime() external view override returns (uint256) {
+        return fundStartTimestamp + (fundDurationMonths * 30 days);
+    }
+
+    /// @notice test function, using to determine is there connection with UniSwap or it`s not
     function getWETH() external view override returns (address) {
         return router.WETH();
     }
@@ -84,12 +131,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function setFundStatusCompleted() external override {
         require(
-            fundStartTimestamp + _monthToSeconds(fundDurationMonths) <
-                block.timestamp,
+            block.timestamp > this.getEndTime(),
             "Fund is didn`t finish yet"
         );
-        fundEndTimestamp = block.timestamp;
-
         _swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
@@ -107,6 +151,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundStatus = FundStatus.CLOSED;
     }
 
+    /// @notice make deposit in hedge fund. Default min is 0.1 ETH end max is 100 ETH
     function makeDepositInETH() external payable override {
         require(
             msg.value >= softCap && msg.value <= hardCap,
@@ -118,13 +163,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         deposits.push(deposit);
     }
 
-    // call this method, if you want widthrow your deposits before trading period started
+    /// @notice widthrow your deposits before trading period is started
     function widthrawBeforeFundStarted() external override {
+        // todo: does have any deposits. If not - revert
         require(fundStatus == FundStatus.OPENED, "Fund is already started");
 
         for (uint256 i = 0; i < deposits.length; i++) {
-            if (deposits[i].depositOwner == payable(msg.sender))
+            if (deposits[i].depositOwner == payable(msg.sender)) {
                 _withdraw(deposits[i]);
+                delete deposits[i];
+            }
         }
     }
 
@@ -150,14 +198,14 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address[] memory path = new address[](2);
 
         require(
-            _containsIn(boughtTokenAddresses, tokenFrom),
+            boughtTokenAddresses.contains(tokenFrom),
             "You must to own {tokenFrom} first"
         );
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
-                : _containsIn(allowedTokenAddresses, tokenFrom) &&
-                    _containsIn(allowedTokenAddresses, tokenTo),
+                : allowedTokenAddresses.contains(tokenFrom) &&
+                    allowedTokenAddresses.contains(tokenTo),
             "Trading with not allowed tokens"
         );
 
@@ -181,7 +229,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (_containsIn(boughtTokenAddresses, tokenTo))
+        if (boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
 
         return amounts[1];
@@ -195,7 +243,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address[] memory path = new address[](2);
 
         require(
-            _containsIn(boughtTokenAddresses, tokenFrom),
+            boughtTokenAddresses.contains(tokenFrom),
             "You need to own {tokenFrom} first"
         );
 
@@ -228,7 +276,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyInActiveState returns (uint256) {
         require(
-            _containsIn(allowedTokenAddresses, tokenTo),
+            allowedTokenAddresses.contains(tokenTo),
             "Trading with not allowed tokens"
         );
 
@@ -249,7 +297,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 address(this),
                 block.timestamp + depositTXDeadlineSeconds
             );
-        if (_containsIn(boughtTokenAddresses, tokenTo))
+        if (boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
         return amounts[1];
     }
@@ -295,59 +343,20 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-            _removeAt(boughtTokenAddresses, i);
+            boughtTokenAddresses.removeAt(i);
         }
     }
-
-    function _calculateNumberFromNumberProcentage(uint256 a, uint256 b)
-        private
-        pure
-        returns (uint256)
-    {
-        return b.div(a).mul(100); // todo: read about SafeMath library
-    }
-
-    function _calculateNumberFromProcentage(uint256 p, uint256 all)
-        private
-        pure
-        returns (uint256)
-    {
-        return uint256(all.div(100).mul(p));
-    }
-
-    function _removeAt(address payable[] storage arr, uint256 i) private {
-        if (arr.length == 0) return;
-
-        arr[i] = arr[arr.length - 1];
-        arr.pop();
-    }
-
-    function _containsIn(address payable[] storage arr, address val)
-        private
-        view
-        returns (bool)
-    {
-        for (uint256 i; i < arr.length; i++) {
-            if (arr[i] == val) return true;
-        }
-
-        return false;
-    }
-
-    function _monthToSeconds(uint256 _m) private pure returns (uint256) {
-        return uint256(_m) * 30 * 24 * 60 * 60;
-    }
-
+    
     function _withdraw(DepositInfo storage info) private {
         uint256 percentage =
-            _calculateNumberFromNumberProcentage(
+            MathPercentage.calculateNumberFromNumberProcentage(
                 info.depositAmount,
                 baseBalance
             );
 
         info.depositOwner.transfer(
             info.depositAmount +
-                _calculateNumberFromProcentage(
+                MathPercentage.calculateNumberFromProcentage(
                     percentage,
                     endBalance - baseBalance
                 )

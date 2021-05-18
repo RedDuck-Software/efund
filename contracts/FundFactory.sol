@@ -3,9 +3,9 @@ pragma solidity ^0.6.6; // because of uniswap
 
 import "./SharedImports.sol";
 import "./HedgeFund.sol";
-import "./Interfaces/IHedgeFactory.sol";
+import "./Interfaces/IFundFactory.sol";
 
-contract FundFactory is IHedgeFactory {
+contract FundFactory is IFundFactory {
     uint256 immutable public softCap = 100000000000000000;
     uint256 immutable public hardCap = 100000000000000000000;
 
@@ -22,16 +22,7 @@ contract FundFactory is IHedgeFactory {
 
         return address(newFund);
     }
-
-    function createFund(uint _fundDurationInMonths) external payable override returns(address fundAddress) { 
-        address payable[] memory allowedTokens = new address payable[](2);
-
-        allowedTokens[0] = 0x4F96Fe3b7A6Cf9725f59d353F723c1bDb64CA6Aa; // DAI
-        allowedTokens[1] = 0x7079f3762805CFf9C979a5bDC6f5648bCFEE76C8; // USDC
-
-        this.createFund(_fundDurationInMonths, allowedTokens);
-    }
-
+    
     // todo: ask guys in chats
     function _sendEth(address payable _to, uint256 _value) private  returns (bool){
         (bool sent, ) = _to.call{value: _value}("");
