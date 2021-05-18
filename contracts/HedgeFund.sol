@@ -35,7 +35,8 @@ library MathPercentage {
         pure
         returns (uint256)
     {
-        return b.div(a).mul(100);
+        // require(b >= a);
+        return b.div(a).mul(1000);
     }
 
     function calculateNumberFromProcentage(uint256 p, uint256 all)
@@ -43,9 +44,10 @@ library MathPercentage {
         pure
         returns (uint256)
     {
-        return uint256(all.div(100).mul(p));
+        return uint256(all.mul(p).div(1000));
     }
 }
+
 
 contract HedgeFund is IHedgeFund, IFundTrade {
     using AddressArrayExstensions for address payable[];
@@ -134,10 +136,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
-        require(
-            block.timestamp > this.getEndTime(),
-            "Fund is didn`t finish yet"
-        );
+        // require(
+        //     block.timestamp > this.getEndTime(),
+        //     "Fund is didn`t finish yet"
+        // );
         _swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
@@ -321,8 +323,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             path[0] = boughtTokenAddresses[i];
             path[1] = router.WETH();
 
+            uint256 amountIn =
+                IERC20(boughtTokenAddresses[i]).balanceOf(address(this));
+
+            IERC20(boughtTokenAddresses[i]).approve(
+                uniswapv2RouterAddress,
+                amountIn
+            );
+
             router.swapExactTokensForETH(
-                IERC20(boughtTokenAddresses[i]).balanceOf(address(this)),
+                amountIn,
                 0,
                 path,
                 address(this),
@@ -334,6 +344,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function _withdraw(DepositInfo storage info) private {
+        // uint -> int
         uint256 percentage =
             MathPercentage.calculateNumberFromNumberProcentage(
                 info.depositAmount,

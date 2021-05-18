@@ -6,8 +6,8 @@ import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
 
 contract FundFactory is IFundFactory {
-    uint256 immutable public softCap = 100000000000000000;
-    uint256 immutable public hardCap = 100000000000000000000;
+    uint256 immutable public softCap = 1000000000000000; // -00
+    uint256 immutable public hardCap = 100000000000000000000; // -0
 
     address[] public funds;
 
@@ -22,7 +22,7 @@ contract FundFactory is IFundFactory {
 
         return address(newFund);
     }
-    
+
     // todo: ask guys in chats
     function _sendEth(address payable _to, uint256 _value) private  returns (bool){
         (bool sent, ) = _to.call{value: _value}("");
