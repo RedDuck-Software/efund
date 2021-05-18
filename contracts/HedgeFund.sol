@@ -114,6 +114,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         allowedTokenAddresses = _allowedTokenAddresses;
     }
 
+    function getCurrentBalanceInETH() external view override returns (uint256) {
+        return address(this).balance;
+    }
+
     function getEndTime() external view override returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths * 30 days);
     }
@@ -125,11 +129,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function setFundStatusActive() external override onlyForFundManager {
         fundStatus = FundStatus.ACTIVE;
-        baseBalance = address(this).balance;
+        baseBalance = this.getCurrentBalanceInETH();
         fundStartTimestamp = block.timestamp;
     }
 
-    function setFundStatusCompleted() external override {
+    function setFundStatusCompleted() external override onlyInActiveState {
         require(
             block.timestamp > this.getEndTime(),
             "Fund is didn`t finish yet"
@@ -194,7 +198,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable tokenTo,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState returns (uint256) {
+    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         address[] memory path = new address[](2);
 
         require(
@@ -220,6 +224,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Output amount is lower then {amountOutMin}"
         );
 
+        IERC20(tokenFrom).approve(uniswapv2RouterAddress, amountIn);
+
         uint256[] memory amounts =
             router.swapExactTokensForTokens(
                 amountIn,
@@ -229,7 +235,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (boughtTokenAddresses.contains(tokenTo))
+        if (!boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
 
         return amounts[1];
@@ -239,7 +245,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable tokenFrom,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState returns (uint256) {
+    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         address[] memory path = new address[](2);
 
         require(
@@ -258,6 +264,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Output amount is lower then {amountOutMin}"
         );
 
+        IERC20(tokenFrom).approve(uniswapv2RouterAddress, amountIn);
+
         uint256[] memory amounts =
             router.swapExactTokensForETH(
                 amountIn,
@@ -274,9 +282,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable tokenTo,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState returns (uint256) {
+    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         require(
-            allowedTokenAddresses.contains(tokenTo),
+            allowedTokenAddresses.length == 0
+                ? true // if empty array specified, all tokens are valid for trade
+                : allowedTokenAddresses.contains(tokenTo),
             "Trading with not allowed tokens"
         );
 
@@ -297,35 +307,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 address(this),
                 block.timestamp + depositTXDeadlineSeconds
             );
-        if (boughtTokenAddresses.contains(tokenTo))
+
+        if (!boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
+
         return amounts[1];
-    }
-
-    function swapERC20ToERC20(
-        address payable tokenFrom,
-        address payable tokenTo,
-        uint256 amountIn
-    ) external override onlyInActiveState returns (uint256) {
-        return this.swapERC20ToERC20(tokenFrom, tokenTo, amountIn, 0);
-    }
-
-    function swapERC20ToETH(address payable tokenFrom, uint256 amountIn)
-        external
-        override
-        onlyInActiveState
-        returns (uint256)
-    {
-        return this.swapERC20ToETH(tokenFrom, amountIn, 0);
-    }
-
-    function swapETHToERC20(address payable tokenTo, uint256 amountIn)
-        external
-        override
-        onlyInActiveState
-        returns (uint256)
-    {
-        this.swapETHToERC20(tokenTo, amountIn, 0);
     }
 
     function _swapAllTokensIntoETH() private {
@@ -346,7 +332,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             boughtTokenAddresses.removeAt(i);
         }
     }
-    
+
     function _withdraw(DepositInfo storage info) private {
         uint256 percentage =
             MathPercentage.calculateNumberFromNumberProcentage(
@@ -368,10 +354,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
-    // Function to receive Ether. msg.data must be empty
+    // Functions to receive Ether
     receive() external payable {}
 
-    // Fallback function is called when msg.data is not empty
     fallback() external payable {}
 
     enum FundStatus {OPENED, ACTIVE, COMPLETED, CLOSED}

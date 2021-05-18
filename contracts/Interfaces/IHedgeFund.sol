@@ -18,4 +18,6 @@ interface IHedgeFund {
     function setFundStatusClosed() external;
 
     function getEndTime() external view returns (uint256);
+
+    function getCurrentBalanceInETH() external view returns (uint256);
 }
