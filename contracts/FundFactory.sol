@@ -16,9 +16,9 @@ contract FundFactory is IFundFactory {
     IUFundOracle oracle;
     IERC20 eFundToken;
 
-    constructor(address _oracleAddress, address payable eFundAddress) {
+    constructor(address _oracleAddress, address payable _eFundAddress) {
         oracle = IUFundOracle(_oracleAddress);
-        eFundToken = IERC20(eFundToken);
+        eFundToken = IERC20(_eFundAddress);
     }
 
     function createFund(
