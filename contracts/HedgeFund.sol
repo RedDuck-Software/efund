@@ -80,7 +80,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     modifier onlyForFundManager() {
         require(
-            msg.sender == fundManager,
+            msg.sender == fundManager || msg.sender == address(this),
             "You have not permissions to this action"
         );
         _;
@@ -180,6 +180,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             msg.value >= softCap && msg.value <= hardCap,
             "Transaction value is less then minimum deposit amout"
         );
+
+        require(msg.value <= this.getCurrentBalanceInETH(),"Not enough money on the balance" );
 
         DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
 

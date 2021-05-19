@@ -6,8 +6,8 @@ import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
 
 contract FundFactory is IFundFactory {
-    uint256 public immutable softCap = 1000000000000000; // -00
-    uint256 public immutable hardCap = 100000000000000000000; // -0
+    uint256 public immutable softCap = 100000000000000000;
+    uint256 public immutable hardCap = 1000000000000000000000;
 
     address[] public funds;
 
