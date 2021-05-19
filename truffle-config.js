@@ -70,20 +70,6 @@ module.exports = {
           `https://ropsten.infura.io/v3/${config.projectId}`
         ),
       network_id: 3, // Ropsten's id
-      gasPrice: 25000000000,
-      gas: 1230000, // Ropsten has a lower block limit than mainnet
-      confirmations: 2, // # of confs to wait between deployments. (default: 0)
-      timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
-      skipDryRun: true, // Skip dry run before migrations? (default: false for public nets )
-    },
-
-    ropsten: {
-      provider: () =>
-        new HDWalletProvider(
-          config.mnemonic,
-          `https://ropsten.infura.io/v3/${config.projectId}`
-        ),
-      network_id: 3, // Ropsten's id
       //gasPrice: 25000000000,
       gas: 1230000, // Ropsten has a lower block limit than mainnet
       confirmations: 2, // # of confs to wait between deployments. (default: 0)
@@ -113,7 +99,17 @@ module.exports = {
       timeoutBlocks: 200, // # of blocks before a deployment times out  (minimum/default: 50)
       skipDryRun: true, // Skip dry run before migrations? (default: false for public nets )
     },
-
+    testnet: {
+      provider: () =>
+        new HDWalletProvider(
+          config.mnemonic,
+          `https://data-seed-prebsc-1-s1.binance.org:8545`
+        ),
+      network_id: 97,
+      confirmations: 10,
+      timeoutBlocks: 200,
+      skipDryRun: true,
+    },
 
     // Useful for private networks
     // private: {
@@ -121,8 +117,6 @@ module.exports = {
     // network_id: 2111,   // This network is yours, in the cloud.
     // production: true    // Treats this network as if it was a public net. (default: false)
     // }
-
-
   },
 
   // Set default mocha options here, use special reporters etc.
@@ -138,7 +132,7 @@ module.exports = {
       // settings: {          // See the solidity docs for advice about optimization and evmVersion
       optimizer: {
         enabled: true,
-        runs: 200
+        runs: 200,
       },
       //  evmVersion: "byzantium"
       // }

@@ -28,26 +28,24 @@ library AddressArrayExstensions {
 }
 
 library MathPercentage {
-    using OZSafeMath for uint256;
+    using OZSignedSafeMath for int256;
 
-    function calculateNumberFromNumberProcentage(uint256 a, uint256 b)
+    function calculateNumberFromNumberProcentage(int256 a, int256 b)
         internal
         pure
-        returns (uint256)
+        returns (int256)
     {
-        // require(b >= a);
-        return b.div(a).mul(1000);
+        return a.mul(10**18).div(b);
     }
 
-    function calculateNumberFromProcentage(uint256 p, uint256 all)
+    function calculateNumberFromProcentage(int256 p, int256 all)
         internal
         pure
-        returns (uint256)
+        returns (int256)
     {
-        return uint256(all.mul(p).div(1000));
+        return int256(all.mul(p).div(10**18));
     }
 }
-
 
 contract HedgeFund is IHedgeFund, IFundTrade {
     using AddressArrayExstensions for address payable[];
@@ -56,24 +54,21 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     DepositInfo[] public deposits;
 
+    FundStatus public fundStatus;
+
     uint256 public softCap;
 
     uint256 public hardCap;
 
-    address payable private uniswapv2RouterAddress =
-        0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D;
+    address public uniswapv2RouterAddress;
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
-
-    FundStatus public fundStatus;
 
     address public fundManager;
 
     uint256 public fundDurationMonths;
 
     uint256 public fundStartTimestamp;
-
-    // todo: current balance
 
     uint256 public baseBalance;
 
@@ -99,7 +94,24 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _;
     }
 
+    modifier onlyInComplitedState() {
+        require(
+            fundStatus == FundStatus.COMPLETED,
+            "Fund should be in an Complited status"
+        );
+        _;
+    }
+
+    modifier onlyInOpenedState() {
+        require(
+            fundStatus == FundStatus.OPENED,
+            "Fund should be in an Opened status"
+        );
+        _;
+    }
+
     constructor(
+        address payable _swapRouterContract,
         uint256 _softCap,
         uint256 _hardCap,
         address _managerAddress,
@@ -107,7 +119,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable[] memory _allowedTokenAddresses
     ) public {
         require(_validateDuration(_durationMonths), "Invalid duration");
-        router = UniswapV2Router02(uniswapv2RouterAddress);
+        uniswapv2RouterAddress = _swapRouterContract;
+        router = UniswapV2Router02(_swapRouterContract);
         fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
         fundDurationMonths = _durationMonths;
@@ -129,10 +142,24 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return router.WETH();
     }
 
-    function setFundStatusActive() external override onlyForFundManager {
+    function setFundStatusActive()
+        external
+        override
+        onlyInOpenedState
+        onlyForFundManager
+    {
         fundStatus = FundStatus.ACTIVE;
         baseBalance = this.getCurrentBalanceInETH();
         fundStartTimestamp = block.timestamp;
+    }
+
+    function setFundStatusClosed()
+        external
+        override
+        onlyInComplitedState
+        onlyForFundManager
+    {
+        fundStatus = FundStatus.CLOSED;
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
@@ -140,25 +167,15 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         //     block.timestamp > this.getEndTime(),
         //     "Fund is didn`t finish yet"
         // );
-        _swapAllTokensIntoETH();
+        this.swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
 
         endBalance = address(this).balance;
-        this.withdraw();
-        this.setFundStatusClosed();
     }
 
-    function setFundStatusClosed() external override {
-        require(
-            fundStatus == FundStatus.COMPLETED,
-            "Fund must be completed to become closed"
-        );
-        fundStatus = FundStatus.CLOSED;
-    }
-
-    /// @notice make deposit in hedge fund. Default min is 0.1 ETH end max is 100 ETH
-    function makeDepositInETH() external payable override {
+    /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH
+    function makeDepositInETH() external payable override onlyInOpenedState{
         require(
             msg.value >= softCap && msg.value <= hardCap,
             "Transaction value is less then minimum deposit amout"
@@ -170,26 +187,29 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @notice widthrow your deposits before trading period is started
-    function widthrawBeforeFundStarted() external override {
-        // todo: does have any deposits. If not - revert
-        require(fundStatus == FundStatus.OPENED, "Fund is already started");
+    function widthrawBeforeFundStarted() external override onlyInOpenedState {
+        bool haveDeposits = false;
 
         for (uint256 i = 0; i < deposits.length; i++) {
             if (deposits[i].depositOwner == payable(msg.sender)) {
+                haveDeposits = true;
                 _withdraw(deposits[i]);
                 delete deposits[i];
             }
         }
+        require(haveDeposits, "You have not any deposits in hedge fund");
     }
 
     function withdraw() external override {
         require(
-            fundStatus == FundStatus.COMPLETED,
+            fundStatus == FundStatus.COMPLETED ||
+                fundStatus == FundStatus.CLOSED,
             "Fund is not complited yet"
         );
 
         for (uint256 i; i < deposits.length; i++) {
             _withdraw(deposits[i]);
+            delete deposits[i];
         }
     }
 
@@ -316,7 +336,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return amounts[1];
     }
 
-    function _swapAllTokensIntoETH() private {
+    function swapAllTokensIntoETH() public onlyForFundManager {
+        require(fundStatus != FundStatus.OPENED, "Fund should be started");
+
         for (uint256 i; i < boughtTokenAddresses.length; i++) {
             address[] memory path = new address[](2);
 
@@ -339,24 +361,30 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-            boughtTokenAddresses.removeAt(i);
+            delete boughtTokenAddresses[i];
         }
     }
 
     function _withdraw(DepositInfo storage info) private {
-        // uint -> int
-        uint256 percentage =
+        if (baseBalance == 0) {
+            info.depositOwner.transfer(info.depositAmount);
+            return;
+        }
+
+        int256 percentage =
             MathPercentage.calculateNumberFromNumberProcentage(
-                info.depositAmount,
-                baseBalance
+                int256(info.depositAmount),
+                int256(baseBalance)
             );
 
         info.depositOwner.transfer(
-            info.depositAmount +
-                MathPercentage.calculateNumberFromProcentage(
-                    percentage,
-                    endBalance - baseBalance
-                )
+            uint256(
+                int256(info.depositAmount) +
+                    MathPercentage.calculateNumberFromProcentage(
+                        percentage,
+                        int256(endBalance) - int256(baseBalance)
+                    )
+            )
         );
     }
 

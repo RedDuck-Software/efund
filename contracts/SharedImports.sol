@@ -10,5 +10,5 @@ import {
 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {
-    SafeMath as OZSafeMath
-} from "@openzeppelin/contracts/math/SafeMath.sol";
+    SignedSafeMath as OZSignedSafeMath
+} from "@openzeppelin/contracts/math/SignedSafeMath.sol";
