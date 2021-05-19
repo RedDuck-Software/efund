@@ -4,6 +4,8 @@ pragma solidity ^0.6.6; // because of uniswap
 import "./SharedImports.sol";
 import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
+import "./UFundOracle.sol";
+import "./Tokens/eFund.sol";
 
 contract FundFactory is IFundFactory {
     uint256 public immutable softCap = 100000000000000000;
@@ -11,19 +13,30 @@ contract FundFactory is IFundFactory {
 
     address[] public funds;
 
+    IUFundOracle oracle;
+    IERC20 eFundToken;
+
+    constructor(address _oracleAddress, address payable eFundAddress) {
+        oracle = IUFundOracle(_oracleAddress);
+        eFundToken = IERC20(eFundToken);
+    }
+
     function createFund(
         address payable swapRouterContract,
         uint256 _fundDurationInMonths,
         address payable[] calldata allowedTokens
     ) external payable override returns (address fundAddress) {
         require(
-            msg.value >= softCap && msg.value <= hardCap,
+            msg.value * oracle.getPriceInETH() >= softCap &&
+                msg.value * oracle.getPriceInETH() <= hardCap,
             "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
         );
 
         HedgeFund newFund =
             new HedgeFund(
                 swapRouterContract,
+                address(eFundToken),
+                address(oracle),
                 softCap,
                 hardCap,
                 msg.sender,

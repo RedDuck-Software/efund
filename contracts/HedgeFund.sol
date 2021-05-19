@@ -5,6 +5,7 @@ import "./SharedImports.sol";
 import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
+import "./Interfaces/IFixedOracle.sol";
 
 library AddressArrayExstensions {
     function removeAt(address payable[] storage arr, uint256 i) internal {
@@ -55,6 +56,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     DepositInfo[] public deposits;
 
     FundStatus public fundStatus;
+
+    IUFundOracle public oracle;
+
+    IERC20 public eFund;
 
     uint256 public softCap;
 
@@ -112,6 +117,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     constructor(
         address payable _swapRouterContract,
+        address payable _eFundContract,
+        address _oracleContract,
         uint256 _softCap,
         uint256 _hardCap,
         address _managerAddress,
@@ -149,7 +156,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyForFundManager
     {
         fundStatus = FundStatus.ACTIVE;
-        baseBalance = this.getCurrentBalanceInETH();
+        baseBalance = eFund.balanceOf(address(this));
         fundStartTimestamp = block.timestamp;
     }
 
@@ -171,19 +178,29 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         fundStatus = FundStatus.COMPLETED;
 
-        endBalance = address(this).balance;
+        baseBalance = eFund.balanceOf(address(this));
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH
-    function makeDepositInETH() external payable override onlyInOpenedState{
+    function makeDeposit(uint256 amount)
+        external
+        payable
+        override
+        onlyInOpenedState
+    {
         require(
-            msg.value >= softCap && msg.value <= hardCap,
+            oracle.getPriceInETH(amount),
             "Transaction value is less then minimum deposit amout"
         );
+        require(
+            oracle.getPriceInETH(IERC20(eFund).balanceOf(address(this))) <=
+                hardCap,
+            "Max cap in 100 ETH is overflowed"
+        );
 
-        require(msg.value <= this.getCurrentBalanceInETH(),"Not enough money on the balance" );
+        eFund.transferFrom(msg.sender, address(this), amount);
 
-        DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
+        DepositInfo memory deposit = DepositInfo(msg.sender, amount);
 
         deposits.push(deposit);
     }
@@ -232,8 +249,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
-                : allowedTokenAddresses.contains(tokenFrom) &&
-                    allowedTokenAddresses.contains(tokenTo),
+                : allowedTokenAddresses.contains(tokenTo) ||
+                    address(tokenTo) == eFund,
             "Trading with not allowed tokens"
         );
 
@@ -338,6 +355,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return amounts[1];
     }
 
+    function swapAllTokensIntoEFund() public onlyForFundManager {
+        require(fundStatus != FundStatus.OPENED, "Fund should be started");
+
+        for (uint256 i; i < boughtTokenAddresses.length; i++) {
+            this.swapERC20ToERC20(
+                boughtTokenAddresses[i],
+                address(eFund),
+                IERC20(boughtTokenAddresses[i]).balanceOf(address(this)),
+                1
+            );
+        }
+    }
+
     function swapAllTokensIntoETH() public onlyForFundManager {
         require(fundStatus != FundStatus.OPENED, "Fund should be started");
 
@@ -369,7 +399,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function _withdraw(DepositInfo storage info) private {
         if (baseBalance == 0) {
-            info.depositOwner.transfer(info.depositAmount);
+            eFund.transfer(info.depositOwner, info.depositAmount);
             return;
         }
 
@@ -379,7 +409,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 int256(baseBalance)
             );
 
-        info.depositOwner.transfer(
+        eFund.transfer(
+            info.depositOwner,
             uint256(
                 int256(info.depositAmount) +
                     MathPercentage.calculateNumberFromProcentage(
@@ -404,6 +435,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     struct DepositInfo {
         address payable depositOwner;
-        uint256 depositAmount; // deposit amount in ETH
+        uint256 depositAmount; // deposit amount in eFund
     }
 }
