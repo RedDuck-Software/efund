@@ -5,7 +5,7 @@ interface IHedgeFund {
  
     function getWETH() external view returns (address);
 
-    function makeDepositInETH() external payable;
+    function makeDeposit(uint256 amount) external;
 
     function withdraw() external;
 

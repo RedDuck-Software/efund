@@ -181,19 +181,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         baseBalance = eFund.balanceOf(address(this));
     }
 
-    /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH
+    /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
     function makeDeposit(uint256 amount)
         external
-        payable
         override
         onlyInOpenedState
     {
         require(
-            oracle.getPriceInETH(amount),
+            oracle.getPriceInETH(amount) >= softCap,
             "Transaction value is less then minimum deposit amout"
         );
         require(
-            oracle.getPriceInETH(IERC20(eFund).balanceOf(address(this))) <=
+            oracle.getPriceInETH(eFund.balanceOf(address(this))) <=
                 hardCap,
             "Max cap in 100 ETH is overflowed"
         );
@@ -250,7 +249,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
                 : allowedTokenAddresses.contains(tokenTo) ||
-                    address(tokenTo) == eFund,
+                    address(tokenTo) == address(eFund),
             "Trading with not allowed tokens"
         );
 
@@ -361,7 +360,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         for (uint256 i; i < boughtTokenAddresses.length; i++) {
             this.swapERC20ToERC20(
                 boughtTokenAddresses[i],
-                address(eFund),
+                payable(address(eFund)),
                 IERC20(boughtTokenAddresses[i]).balanceOf(address(this)),
                 1
             );
