@@ -5,7 +5,7 @@ import "./SharedImports.sol";
 import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
 import "./UFundOracle.sol";
-import "./Tokens/eFund.sol";
+import "./Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
     uint256 public immutable softCap = 100000000000000000;
@@ -31,13 +31,6 @@ contract FundFactory is IFundFactory {
             "Not enough eFund tokens"
         );
 
-       
-        // require(
-        //     oracle.getPriceInETH(softCap) >= softCap &&
-        //         oracle.getPriceInETH(softCap) <= hardCap,
-        //     "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
-        // );
-
         HedgeFund newFund =
             new HedgeFund(
                 swapRouterContract,
@@ -51,8 +44,6 @@ contract FundFactory is IFundFactory {
             );
 
         eFundToken.transferFrom(msg.sender, address(newFund), oracle.getPriceInEFund(softCap));
-        
-        // _sendEth(payable(address(newFund)), msg.value);
 
         funds.push(address(newFund));
 

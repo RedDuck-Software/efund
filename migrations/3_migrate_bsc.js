@@ -1,10 +1,10 @@
 const FundFactory = artifacts.require("FundFactory");
 const Oracle = artifacts.require("UFundOracle");
-const eFundERC20 = artifacts.require("eFundERC20");
+const eFundBEP20 = artifacts.require("eFundBEP20");
 
 module.exports = function (deployer) {
   deployer.deploy(eFundERC20).then(() => {
-    eFundERC20.deployed().then((_eFundinstance) => {
+    eFundBEP20.deployed().then((_eFundinstance) => {
 
       deployer.deploy(Oracle).then(() => {
         Oracle.deployed().then((_oracleInstance) => {
@@ -21,9 +21,4 @@ module.exports = function (deployer) {
     });
   });
 
-  // deployer.deploy(Oracle).then(() => {
-  //   Oracle.deployed().then((_instance) => {
-  //     deployer.deploy(FundFactory, _instance.address);
-  //   });
-  // });
 };
