@@ -142,7 +142,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return address(this).balance;
     }
 
-    function getCurrentBalanceInEFund() external view override returns (uint256) {
+    function getCurrentBalanceInEFund()
+        external
+        view
+        override
+        returns (uint256)
+    {
         return eFund.balanceOf(address(this));
     }
 
@@ -188,18 +193,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
-    function makeDeposit(uint256 amount)
-        external
-        override
-        onlyInOpenedState
-    {
+    function makeDeposit(uint256 amount) external override onlyInOpenedState {
         require(
             oracle.getPriceInETH(amount) >= softCap,
             "Transaction value is less then minimum deposit amout"
         );
         require(
-            oracle.getPriceInETH(eFund.balanceOf(address(this))) <=
-                hardCap,
+            oracle.getPriceInETH(eFund.balanceOf(address(this))) <= hardCap,
             "Max cap in 100 ETH is overflowed. Try to send less tokens"
         );
 
@@ -245,8 +245,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountIn,
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        address[] memory path = new address[](2);
-
         require(
             boughtTokenAddresses.contains(tokenFrom),
             "You must to own {tokenFrom} first"
@@ -259,8 +257,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Trading with not allowed tokens"
         );
 
-        path[0] = tokenFrom;
-        path[1] = tokenTo;
+        address[] memory path = _createPath(tokenFrom, tokenTo);
 
         // how much {tokenTo} we can buy with {tokenFrom} token
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
@@ -292,15 +289,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountIn,
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        address[] memory path = new address[](2);
+        address[] memory path = _createPath(tokenFrom, router.WETH());
 
         require(
             boughtTokenAddresses.contains(tokenFrom),
             "You need to own {tokenFrom} first"
         );
-
-        path[0] = tokenFrom;
-        path[1] = router.WETH();
 
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
@@ -336,9 +330,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Trading with not allowed tokens"
         );
 
-        address[] memory path = new address[](2);
-        path[0] = router.WETH();
-        path[1] = tokenTo;
+        address[] memory path = _createPath(router.WETH(), tokenTo);
+    
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
 
@@ -377,10 +370,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(fundStatus != FundStatus.OPENED, "Fund should be started");
 
         for (uint256 i; i < boughtTokenAddresses.length; i++) {
-            address[] memory path = new address[](2);
-
-            path[0] = boughtTokenAddresses[i];
-            path[1] = router.WETH();
+            address[] memory path =
+                _createPath(boughtTokenAddresses[i], router.WETH());
 
             uint256 amountIn =
                 IERC20(boughtTokenAddresses[i]).balanceOf(address(this));
@@ -426,14 +417,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
     }
 
-    function _createPath(address payable tokenFrom, address payable tokenTo) private pure returns (address[] memory){
+    function _createPath(address tokenFrom, address tokenTo)
+        private
+        pure
+        returns (address[] memory)
+    {
         address[] memory path = new address[](2);
 
         path[0] = tokenFrom;
         path[1] = tokenTo;
-        
+
         return path;
-    } 
+    }
 
     // validate hendge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
