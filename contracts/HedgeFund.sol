@@ -79,6 +79,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
+    uint256 public endBalanceInWai;
+
     address payable[] boughtTokenAddresses;
 
     address payable[] allowedTokenAddresses;
@@ -189,7 +191,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         fundStatus = FundStatus.COMPLETED;
 
-        baseBalance = eFund.balanceOf(address(this));
+        endBalance = eFund.balanceOf(address(this));
+        endBalanceInWai = this.getCurrentBalanceInWei();
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
@@ -331,7 +334,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
 
         address[] memory path = _createPath(router.WETH(), tokenTo);
-    
+
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
 
@@ -415,8 +418,21 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                     )
             )
         );
+
+        if (this.getCurrentBalanceInWei() != 0) {
+            info.depositOwner.transfer(
+                uint256(
+                    MathPercentage.calculateNumberFromProcentage(
+                        percentage,
+                        int256(endBalanceInWai)
+                    )
+                )
+            );
+        }
     }
 
+
+    /// @dev create path array for uni|cake swap 
     function _createPath(address tokenFrom, address tokenTo)
         private
         pure
@@ -430,7 +446,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return path;
     }
 
-    // validate hendge fund active state duration. Only valid 1,2,3,6 months
+    // validate hedge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
         return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
@@ -439,6 +455,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     receive() external payable {}
 
     fallback() external payable {}
+
 
     enum FundStatus {OPENED, ACTIVE, COMPLETED, CLOSED}
 
