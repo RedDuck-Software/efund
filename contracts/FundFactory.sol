@@ -13,8 +13,8 @@ contract FundFactory is IFundFactory {
 
     address[] public funds;
 
-    IUFundOracle oracle;
-    IERC20 eFundToken;
+    IUFundOracle public oracle;
+    IERC20 public eFundToken;
 
     constructor(address _oracleAddress, address payable _eFundAddress) public {
         oracle = IUFundOracle(_oracleAddress);
@@ -31,6 +31,9 @@ contract FundFactory is IFundFactory {
             "Not enough eFund tokens"
         );
 
+        eFundToken.transferFrom(msg.sender, address(this), oracle.getPriceInEFund(softCap));
+
+
         HedgeFund newFund =
             new HedgeFund(
                 _swapRouterContract,
@@ -43,7 +46,7 @@ contract FundFactory is IFundFactory {
                 allowedTokens
             );
 
-        eFundToken.transferFrom(msg.sender, address(newFund), oracle.getPriceInEFund(softCap));
+        eFundToken.transfer(address(newFund), oracle.getPriceInEFund(softCap));
 
         funds.push(address(newFund));
 
