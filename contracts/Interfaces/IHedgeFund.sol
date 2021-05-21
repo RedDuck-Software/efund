@@ -19,5 +19,7 @@ interface IHedgeFund {
 
     function getEndTime() external view returns (uint256);
 
-    function getCurrentBalanceInETH() external view returns (uint256);
+    function getCurrentBalanceInWei() external view returns (uint256);
+
+    function getCurrentBalanceInEFund() external view returns (uint256);
 }

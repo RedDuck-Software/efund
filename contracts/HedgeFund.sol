@@ -138,8 +138,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         allowedTokenAddresses = _allowedTokenAddresses;
     }
 
-    function getCurrentBalanceInETH() external view override returns (uint256) {
+    function getCurrentBalanceInWei() external view override returns (uint256) {
         return address(this).balance;
+    }
+
+    function getCurrentBalanceInEFund() external view override returns (uint256) {
+        return eFund.balanceOf(address(this));
     }
 
     function getEndTime() external view override returns (uint256) {
@@ -421,6 +425,15 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             )
         );
     }
+
+    function _createPath(address payable tokenFrom, address payable tokenTo) private pure returns (address[] memory){
+        address[] memory path = new address[](2);
+
+        path[0] = tokenFrom;
+        path[1] = tokenTo;
+        
+        return path;
+    } 
 
     // validate hendge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
