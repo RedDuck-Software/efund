@@ -49,6 +49,22 @@ library MathPercentage {
 }
 
 contract HedgeFund is IHedgeFund, IFundTrade {
+
+    event NewDeposit(
+        address payable indexed _depositOwner,
+        uint256 indexed _id,
+        uint256 _depositAmount
+    );
+
+    event FundStatusChanged(uint256 _newStatus);
+
+    event DepositWithdrawedBeforeActiveState(
+        address payable indexed _depositOwner,
+        uint256 indexed _id
+    );
+
+    event AllDepositsWithdrawed();
+
     using AddressArrayExstensions for address payable[];
 
     UniswapV2Router02 private router;
@@ -69,7 +85,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    address public fundManager;
+    address payable public fundManager;
 
     uint256 public fundDurationMonths;
 
@@ -84,6 +100,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     address payable[] boughtTokenAddresses;
 
     address payable[] allowedTokenAddresses;
+
+    bool public isDepositsWithdrawed;
 
     modifier onlyForFundManager() {
         require(
@@ -123,7 +141,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address _oracleContract,
         uint256 _softCap,
         uint256 _hardCap,
-        address _managerAddress,
+        address payable _managerAddress,
         uint256 _durationMonths,
         address payable[] memory _allowedTokenAddresses
     ) public {
@@ -138,6 +156,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         softCap = _softCap;
         hardCap = _hardCap;
         allowedTokenAddresses = _allowedTokenAddresses;
+        isDepositsWithdrawed = false;
     }
 
     function getCurrentBalanceInWei() external view override returns (uint256) {
@@ -171,6 +190,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundStatus = FundStatus.ACTIVE;
         baseBalance = eFund.balanceOf(address(this));
         fundStartTimestamp = block.timestamp;
+
+        emit FundStatusChanged(uint(fundStatus));
     }
 
     function setFundStatusClosed()
@@ -180,6 +201,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyForFundManager
     {
         fundStatus = FundStatus.CLOSED;
+        emit FundStatusChanged(uint(fundStatus));
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
@@ -187,12 +209,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         //     block.timestamp > this.getEndTime(),
         //     "Fund is didn`t finish yet"
         // );
+
         this.swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
 
+        // if(endBalance - baseBalance > 0) {
+        //     endBalance = eFund.balanceOf(address(this)) - ;
+        // }
+
         endBalance = eFund.balanceOf(address(this));
         endBalanceInWai = this.getCurrentBalanceInWei();
+        emit FundStatusChanged(uint(fundStatus));
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
@@ -211,16 +239,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         DepositInfo memory deposit = DepositInfo(msg.sender, amount);
 
         deposits.push(deposit);
+
+        emit NewDeposit(msg.sender, deposits.length - 1, amount);
     }
 
-    /// @notice widthrow your deposits before trading period is started
-    function widthrawBeforeFundStarted() external override onlyInOpenedState {
+    /// @notice withdraw your deposits before trading period is started
+    function withdrawBeforeFundStarted() external override onlyInOpenedState {
         bool haveDeposits = false;
 
         for (uint256 i = 0; i < deposits.length; i++) {
             if (deposits[i].depositOwner == payable(msg.sender)) {
                 haveDeposits = true;
                 _withdraw(deposits[i]);
+                emit DepositWithdrawedBeforeActiveState(msg.sender, i);
                 delete deposits[i];
             }
         }
@@ -234,10 +265,25 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Fund is not complited yet"
         );
 
+        require(!isDepositsWithdrawed, "All deposits are already withdrawed");
+
         for (uint256 i; i < deposits.length; i++) {
             _withdraw(deposits[i]);
             delete deposits[i];
         }
+        isDepositsWithdrawed = true;
+
+        emit AllDepositsWithdrawed();
+    }
+
+    function withdrawToManager() public onlyForFundManager {
+        require(
+            isDepositsWithdrawed,
+            "Can withdraw only after all depositst were withdrawed"
+        );
+
+        eFund.transfer(fundManager, eFund.balanceOf(address(this)));
+        fundManager.transfer(this.getCurrentBalanceInWei());
     }
 
     /* trading section */
@@ -249,14 +295,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         require(
-            boughtTokenAddresses.contains(tokenFrom),
+            tokenFrom == address(eFund)
+                ? true
+                : boughtTokenAddresses.contains(tokenFrom),
             "You must to own {tokenFrom} first"
         );
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
                 : allowedTokenAddresses.contains(tokenTo) ||
-                    address(tokenTo) == address(eFund),
+                    tokenTo == address(eFund),
             "Trading with not allowed tokens"
         );
 
@@ -281,8 +329,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (!boughtTokenAddresses.contains(tokenTo))
-            boughtTokenAddresses.push(tokenTo);
+        if (
+            !boughtTokenAddresses.contains(tokenTo) && tokenTo != address(eFund)
+        ) boughtTokenAddresses.push(tokenTo);
 
         return amounts[1];
     }
@@ -295,7 +344,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address[] memory path = _createPath(tokenFrom, router.WETH());
 
         require(
-            boughtTokenAddresses.contains(tokenFrom),
+            tokenFrom == address(eFund)
+                ? true
+                : boughtTokenAddresses.contains(tokenFrom),
             "You need to own {tokenFrom} first"
         );
 
@@ -329,7 +380,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
-                : allowedTokenAddresses.contains(tokenTo),
+                : allowedTokenAddresses.contains(tokenTo) ||
+                    tokenTo == address(eFund),
             "Trading with not allowed tokens"
         );
 
@@ -350,8 +402,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (!boughtTokenAddresses.contains(tokenTo))
-            boughtTokenAddresses.push(tokenTo);
+        if (
+            !boughtTokenAddresses.contains(tokenTo) && tokenTo != address(eFund)
+        ) boughtTokenAddresses.push(tokenTo);
 
         return amounts[1];
     }
@@ -431,8 +484,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         }
     }
 
-
-    /// @dev create path array for uni|cake swap 
+    /// @dev create path array for uni|cake swap
     function _createPath(address tokenFrom, address tokenTo)
         private
         pure
@@ -455,7 +507,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     receive() external payable {}
 
     fallback() external payable {}
-
 
     enum FundStatus {OPENED, ACTIVE, COMPLETED, CLOSED}
 
