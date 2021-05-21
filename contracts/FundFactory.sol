@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.6; // because of uniswap
+pragma solidity ^0.6.6; // because of uni|cake swap
 
 import "./SharedImports.sol";
 import "./HedgeFund.sol";
@@ -16,7 +16,7 @@ contract FundFactory is IFundFactory {
     IUFundOracle oracle;
     IERC20 eFundToken;
 
-    constructor(address _oracleAddress, address payable _eFundAddress) {
+    constructor(address _oracleAddress, address payable _eFundAddress) public {
         oracle = IUFundOracle(_oracleAddress);
         eFundToken = IERC20(_eFundAddress);
     }
@@ -27,10 +27,16 @@ contract FundFactory is IFundFactory {
         address payable[] calldata allowedTokens
     ) external payable override returns (address fundAddress) {
         require(
-            msg.value * oracle.getPriceInETH() >= softCap &&
-                msg.value * oracle.getPriceInETH() <= hardCap,
-            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
+            eFundToken.balanceOf(msg.sender) >= oracle.getPriceInEFund(softCap),
+            "Not enough eFund tokens"
         );
+
+       
+        // require(
+        //     oracle.getPriceInETH(softCap) >= softCap &&
+        //         oracle.getPriceInETH(softCap) <= hardCap,
+        //     "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
+        // );
 
         HedgeFund newFund =
             new HedgeFund(
@@ -44,7 +50,9 @@ contract FundFactory is IFundFactory {
                 allowedTokens
             );
 
-        _sendEth(payable(address(newFund)), msg.value);
+        eFundToken.transferFrom(msg.sender, address(newFund), oracle.getPriceInEFund(softCap));
+        
+        // _sendEth(payable(address(newFund)), msg.value);
 
         funds.push(address(newFund));
 

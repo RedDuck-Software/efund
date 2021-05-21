@@ -5,5 +5,6 @@ import "./../SharedImports.sol";
 
 contract eFundERC20 is OZERC20{ 
     constructor() public OZERC20("eFund", "EF"){ 
+        _mint(msg.sender, 10**18);
     }
 }
