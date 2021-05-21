@@ -22,7 +22,7 @@ contract FundFactory is IFundFactory {
     }
 
     function createFund(
-        address payable swapRouterContract,
+        address payable _swapRouterContract,
         uint256 _fundDurationInMonths,
         address payable[] calldata allowedTokens
     ) external payable override returns (address fundAddress) {
@@ -33,9 +33,9 @@ contract FundFactory is IFundFactory {
 
         HedgeFund newFund =
             new HedgeFund(
-                swapRouterContract,
-                address(eFundToken),
-                address(oracle),
+                _swapRouterContract,
+                payable(address(eFundToken)),
+                payable(address(oracle)),
                 softCap,
                 hardCap,
                 msg.sender,

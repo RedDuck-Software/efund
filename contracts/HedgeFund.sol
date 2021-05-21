@@ -128,6 +128,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(_validateDuration(_durationMonths), "Invalid duration");
         uniswapv2RouterAddress = _swapRouterContract;
         router = UniswapV2Router02(_swapRouterContract);
+        eFund = IERC20(_eFundContract);
+        oracle = IUFundOracle(_oracleContract);
         fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
         fundDurationMonths = _durationMonths;
@@ -194,7 +196,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(
             oracle.getPriceInETH(eFund.balanceOf(address(this))) <=
                 hardCap,
-            "Max cap in 100 ETH is overflowed"
+            "Max cap in 100 ETH is overflowed. Try to send less tokens"
         );
 
         eFund.transferFrom(msg.sender, address(this), amount);
