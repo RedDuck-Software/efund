@@ -4,7 +4,7 @@ pragma solidity ^0.6.6;
 interface IHedgeFund {
     function getWETH() external view returns (address);
 
-    function makeDeposit(uint256 amount) external;
+    function makeDeposit() external payable;
 
     function withdraw() external;
 
@@ -20,7 +20,7 @@ interface IHedgeFund {
 
     function getCurrentBalanceInWei() external view returns (uint256);
 
-    function getCurrentBalanceInEFund() external view returns (uint256);
+    //function getCurrentBalanceInEFund() external view returns (uint256);
 
-    function getCurrentBalanceTotal() external returns (uint256);
+    //function getCurrentBalanceTotal() external returns (uint256);
 }
