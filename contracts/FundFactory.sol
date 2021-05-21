@@ -27,12 +27,46 @@ contract FundFactory is IFundFactory {
         address payable[] calldata allowedTokens
     ) external payable override returns (address fundAddress) {
         require(
-            eFundToken.balanceOf(msg.sender) >= oracle.getPriceInEFund(softCap),
-            "Not enough eFund tokens"
+            msg.value >= softCap && msg.value <= hardCap,
+            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
         );
 
-        eFundToken.transferFrom(msg.sender, address(this), oracle.getPriceInEFund(softCap));
+        HedgeFund newFund =
+            new HedgeFund(
+                _swapRouterContract,
+                payable(address(eFundToken)),
+                payable(address(oracle)),
+                softCap,
+                hardCap,
+                msg.sender,
+                _fundDurationInMonths,
+                allowedTokens
+            );
 
+        _sendEth(payable(address(newFund)), msg.value);
+
+        funds.push(address(newFund));
+
+        return address(newFund);
+    }
+
+    function createFundWithEFund(
+        uint256 _initialDepositTokens,
+        address payable _swapRouterContract,
+        uint256 _fundDurationInMonths,
+        address payable[] calldata allowedTokens
+    ) external override returns (address fundAddress) {
+        require(
+            oracle.getPriceInETH(_initialDepositTokens) >= softCap &&
+                oracle.getPriceInETH(_initialDepositTokens) <= hardCap,
+            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH in eFund equivalent"
+        );
+
+        eFundToken.transferFrom(
+            msg.sender,
+            address(this),
+            oracle.getPriceInEFund(softCap)
+        );
 
         HedgeFund newFund =
             new HedgeFund(

@@ -49,7 +49,6 @@ library MathPercentage {
 }
 
 contract HedgeFund is IHedgeFund, IFundTrade {
-
     event NewDeposit(
         address payable indexed _depositOwner,
         uint256 indexed _id,
@@ -172,11 +171,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return eFund.balanceOf(address(this));
     }
 
+    /// @notice returns sum of WEI balance and eFund balance (in WEI equivalent)
+    function getCurrentBalanceTotal() external override returns (uint256) {
+        // uint256 weiB = this.getCurrentBalanceInWei();
+        // uint256 efundB = oracle.getPriceInETH(this.getCurrentBalanceInEFund());
+
+        return 0;//weiB + efundB;
+    }
+
     function getEndTime() external view override returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths * 30 days);
     }
 
-    /// @notice test function, using to determine is there connection with UniSwap or it`s not
+    /// @notice test function, using to determine is there connection with uni|cake swap or it`s not
     function getWETH() external view override returns (address) {
         return router.WETH();
     }
@@ -191,7 +198,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         baseBalance = eFund.balanceOf(address(this));
         fundStartTimestamp = block.timestamp;
 
-        emit FundStatusChanged(uint(fundStatus));
+        emit FundStatusChanged(uint256(fundStatus));
     }
 
     function setFundStatusClosed()
@@ -201,7 +208,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyForFundManager
     {
         fundStatus = FundStatus.CLOSED;
-        emit FundStatusChanged(uint(fundStatus));
+        emit FundStatusChanged(uint256(fundStatus));
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
@@ -220,7 +227,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         endBalance = eFund.balanceOf(address(this));
         endBalanceInWai = this.getCurrentBalanceInWei();
-        emit FundStatusChanged(uint(fundStatus));
+        emit FundStatusChanged(uint256(fundStatus));
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
