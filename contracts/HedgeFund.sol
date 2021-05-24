@@ -325,7 +325,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 amountOut,
                 path,
                 address(this),
-                block.timestamp + depositTXDeadlineSeconds
+                block.timestamp + depositTXDeadlineSeconds // find out why deadline is there
             );
 
         if (!boughtTokenAddresses.contains(tokenTo))
