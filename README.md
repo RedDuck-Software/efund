@@ -63,7 +63,7 @@ After 1/2/3/6 period of active state, fund can become completed. ```setFundStatu
 
 Investors can receive their money back using ```withdraw()``` method
 
-The rest of fund balance manager can withdraw to his accpunt using ```withdrawToManager()```
+The rest of fund balance manager can withdraw to his account using ```withdrawToManager()```
 
 # Contract addresses (Mainnet)
 - ``` 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D ``` - UniswapV2Router
