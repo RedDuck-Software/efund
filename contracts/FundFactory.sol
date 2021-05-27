@@ -21,6 +21,10 @@ contract FundFactory is IFundFactory {
         eFundToken = IERC20(_eFundAddress);
     }
 
+    function getAllFunds() public view returns (address[] memory){ 
+        return funds;
+    }
+
     function createFund(
         address payable _swapRouterContract,
         uint256 _fundDurationInMonths,
