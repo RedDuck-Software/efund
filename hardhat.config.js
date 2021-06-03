@@ -37,5 +37,12 @@ module.exports = {
       chainId: 97,
       gas: 1230000,
     },
+    hardhat: {
+      chainId: 1337
+    }
   },
+  paths: {
+    artifacts: '../efund-dapp/src/artifacts',
+  },
+
 };
