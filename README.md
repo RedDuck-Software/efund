@@ -18,8 +18,8 @@ Install all dependencies
     See your compiled artifacts in ```artifacts``` folder
 
 - Depoloy contracts
-    ``` npx hardhat run --network development script/deploy_eth.js``` - for Ethereum
-    ``` npx hardhat run --network development script/deploy_bsc.js``` - for BSC
+    ``` npx hardhat run --network development scripts/deploy_eth.js``` - for Ethereum
+    ``` npx hardhat run --network development scripts/deploy_bsc.js``` - for BSC
 
 ## For non local development (Testnets)
 - Create secrets.json file from secrets.example.json. **Pass real values to it**
