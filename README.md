@@ -1,14 +1,13 @@
-1. Install truffle 
-    ```npm install -g truffle```
+# How to use
 
-2. Install all dependencies
+Install all dependencies
     ```npm i```
 
 
 ## For local development
 - Register your account in
-    - [Alchemy](https://www.alchemy.com/) - Etherium 
-    - [GetBlock](https://getblock.io/) - BSC
+    - [Alchemy](https://www.alchemy.com/) - for Etherium 
+    - [GetBlock](https://getblock.io/) - for BSC
 
 - Run hardhat mainnet fork
     - ``` npx hardhat node --fork https://eth-mainnet.alchemyapi.io/v2/<your_alchemy_api_key> ``` - for Etherium
@@ -16,19 +15,18 @@
     You can specify block number with ```--fork-block-number [number]```
 
 - Depoloy contracts
-    ``` truffle migrate --network development ```
-
+    ``` npx hardhat run --network development script/deploy_eth.js``` - for Ethereum
+    ``` npx hardhat run --network development script/deploy_bsc.js``` - for BSC
 
 ## For non local development (Testnets)
 - Create secrets.json file from secrets.example.json. **Pass real values to it**
     - projectId - your infura project id
     - mnemonic - your wallet mnemonic
 - Deploy contracts
-    ``` truffle migrate --network [network_name] ```
-
-    All availible networks are declared in ``` truffle-config.json ```
+    ``` npx hardhat run --network [network_name] scripts/[deployment_script]```
+    
+    All availible networks are declared in ```hardhat.config.js ```
     Use ```testnet``` as [network_name] for deploying to BSC Testnet
-
 
 # Flow
 
