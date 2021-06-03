@@ -3,7 +3,6 @@
 Install all dependencies
     ```npm i```
 
-
 ## For local development
 - Register your account in
     - [Alchemy](https://www.alchemy.com/) - for Etherium 
@@ -14,6 +13,10 @@ Install all dependencies
     - ``` npx hardhat node --fork https://bsc.getblock.io/?api_key=YOUR-API-KEY ``` - for BSC
     You can specify block number with ```--fork-block-number [number]```
 
+- Compile contracts
+    ``` npx  hardhat compile```
+    See your compiled artifacts in ```artifacts``` folder
+    
 - Depoloy contracts
     ``` npx hardhat run --network development script/deploy_eth.js``` - for Ethereum
     ``` npx hardhat run --network development script/deploy_bsc.js``` - for BSC
