@@ -3,3 +3,5 @@ node_modules/
 secrets.json
 .deps/
 .vscode/
+cache/
+artifacts/
