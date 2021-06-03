@@ -16,7 +16,7 @@ Install all dependencies
 - Compile contracts
     ``` npx  hardhat compile```
     See your compiled artifacts in ```artifacts``` folder
-    
+
 - Depoloy contracts
     ``` npx hardhat run --network development script/deploy_eth.js``` - for Ethereum
     ``` npx hardhat run --network development script/deploy_bsc.js``` - for BSC
@@ -69,7 +69,8 @@ The rest of fund balance manager can withdraw to his account using ```withdrawTo
 
 # Contract addresses (Mainnet)
 - ``` 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D ``` - UniswapV2Router
-- ``` 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3 ``` - PanckakeSwapRouter
+- ``` 0x05fF2B0DB69458A0750badebc4f9e13aDd608C7F ``` - PanckakeSwapRouter **MAINNET**
+- ``` 0x9Ac64Cc6e4415144C455BD8E4837Fea55603e5c3 ``` - PanckakeSwapRouter **TESTNET**
 
 
 **eFund token and oracle contract addresses you will get after their deployments**
