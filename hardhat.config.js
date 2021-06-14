@@ -1,5 +1,6 @@
 // const HDWalletProvider = require("@truffle/hdwallet-provider");
 require("@nomiclabs/hardhat-waffle");
+require('hardhat-contract-sizer');
 
 let config = require("./secrets.json");
 
