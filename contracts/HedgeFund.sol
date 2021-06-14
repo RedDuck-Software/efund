@@ -94,8 +94,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
-    // uint256 public endBalanceInWai;
-
     address payable[] public boughtTokenAddresses;
 
     address payable[] public allowedTokenAddresses;
@@ -162,22 +160,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return address(this).balance;
     }
 
-    // function getCurrentBalanceInEFund()
-    //     external
-    //     view
-    //     override
-    //     returns (uint256)
-    // {
-    //     return eFund.balanceOf(address(this));
-    // }
 
-    // /// @notice returns sum of WEI balance and eFund balance (in WEI equivalent)
-    // function getCurrentBalanceTotal() external override returns (uint256) {
-    //     // uint256 weiB = this.getCurrentBalanceInWei();
-    //     // uint256 efundB = oracle.getPriceInETH(this.getCurrentBalanceInEFund());
-
-    //     return 0; //weiB + efundB;
-    // }
 
     function getEndTime() external view override returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths * 30 days);
@@ -402,19 +385,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         return amounts[1];
     }
-
-    // function swapAllTokensIntoEFund() public onlyForFundManager {
-    //     require(fundStatus != FundStatus.OPENED, "Fund should be started");
-
-    //     for (uint256 i; i < boughtTokenAddresses.length; i++) {
-    //         this.swapERC20ToERC20(
-    //             boughtTokenAddresses[i],
-    //             payable(address(eFund)),
-    //             IERC20(boughtTokenAddresses[i]).balanceOf(address(this)),
-    //             1
-    //         );
-    //     }
-    // }
 
     function swapAllTokensIntoETH() public onlyForFundManager {
         require(fundStatus != FundStatus.OPENED, "Fund should be started");
