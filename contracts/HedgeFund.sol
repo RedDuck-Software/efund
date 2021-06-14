@@ -82,7 +82,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     address public uniswapv2RouterAddress;
 
-    uint256 public immutable depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
+    uint256 public constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     address payable public fundManager;
 
@@ -96,9 +96,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     // uint256 public endBalanceInWai;
 
-    address payable[] boughtTokenAddresses;
+    address payable[] public boughtTokenAddresses;
 
-    address payable[] allowedTokenAddresses;
+    address payable[] public allowedTokenAddresses;
 
     bool public isDepositsWithdrawed;
 
