@@ -61,6 +61,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable indexed _depositOwner,
         uint256 indexed _id
     );
+    
+    event TokensSwap(
+        address _tokenFrom,
+        address _tokenTo,
+        uint256 _amountFrom,
+        uint256 _amountTo
+    );
 
     event AllDepositsWithdrawed();
 
@@ -314,6 +321,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         if (!boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
 
+        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
         return amounts[1];
     }
 
@@ -347,6 +355,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 address(this),
                 block.timestamp + depositTXDeadlineSeconds
             );
+
+        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
+
 
         return amounts[1];
     }
@@ -383,6 +394,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         if (!boughtTokenAddresses.contains(tokenTo))
             boughtTokenAddresses.push(tokenTo);
 
+        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
+
         return amounts[1];
     }
 
@@ -401,13 +414,15 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 amountIn
             );
 
-            router.swapExactTokensForETH(
+            uint256[] memory amounts = router.swapExactTokensForETH(
                 amountIn,
                 0,
                 path,
                 address(this),
                 block.timestamp + depositTXDeadlineSeconds
             );
+
+            emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
 
             delete boughtTokenAddresses[i];
         }
