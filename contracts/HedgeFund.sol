@@ -34,7 +34,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     event AllDepositsWithdrawed();
 
-
     DepositInfo[] public deposits;
 
     FundStatus public fundStatus;
@@ -71,11 +70,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
-
     UniswapV2Router02 private immutable router;
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
-
 
     modifier onlyForFundManager() {
         require(
@@ -182,15 +179,17 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         endBalance = this.getCurrentBalanceInWei();
 
         uint256 fundFee =
-            uint256(MathPercentage.calculateNumberFromPercentage(
-                MathPercentage.translsatePercentageFromBase(
-                    fundProfitPercentage,
-                    100
-                ),
-                int256(endBalance)
-            ));
+            uint256(
+                MathPercentage.calculateNumberFromPercentage(
+                    MathPercentage.translsatePercentageFromBase(
+                        fundProfitPercentage,
+                        100
+                    ),
+                    int256(endBalance)
+                )
+            );
 
-        if (endBalance - fundFee > baseBalance) 
+        if (endBalance - fundFee > baseBalance)
             fundProfit = endBalance - fundFee;
 
         emit FundStatusChanged(uint256(fundStatus));
@@ -450,7 +449,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 int256(info.depositAmount) +
                     MathPercentage.calculateNumberFromPercentage(
                         percentage,
-                        int256(endBalance) - int256(baseBalance) - int256(fundProfit)
+                        int256(endBalance) -
+                            int256(baseBalance) -
+                            int256(fundProfit)
                     )
             )
         );
