@@ -34,7 +34,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     event AllDepositsWithdrawed();
 
-    UniswapV2Router02 private immutable router;
 
     DepositInfo[] public deposits;
 
@@ -47,8 +46,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
-
-    uint256 public constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     address payable public immutable fundManager;
 
@@ -73,6 +70,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     int256 public constant fundProfitPercentage = 1; // 1% - 1% of end balance will not be withdrawed to investors. Used only if fund have some profit
 
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+
+
+    UniswapV2Router02 private immutable router;
+
+    uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
+
 
     modifier onlyForFundManager() {
         require(
@@ -321,7 +324,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 amountOut,
                 path,
                 address(this),
-                block.timestamp + depositTXDeadlineSeconds // find out why deadline is there
+                block.timestamp + depositTXDeadlineSeconds
             );
 
         if (!boughtTokenAddresses.contains(tokenTo))
