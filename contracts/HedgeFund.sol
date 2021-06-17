@@ -60,6 +60,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
+    uint256 public fundProfit;
+
     address payable[] public boughtTokenAddresses;
 
     address payable[] public allowedTokenAddresses;
@@ -67,6 +69,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     bool public isDepositsWithdrawed;
 
     int256 public constant managerProfitPercentage = 90; // 90%
+
+    int256 public constant fundProfitPercentage = 1; // 1% - 1% of end balance will not be withdrawed to investors. Used only if fund have some profit
 
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
@@ -173,6 +177,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundStatus = FundStatus.COMPLETED;
 
         endBalance = this.getCurrentBalanceInWei();
+
+        uint256 fundFee =
+            uint256(MathPercentage.calculateNumberFromPercentage(
+                MathPercentage.translsatePercentageFromBase(
+                    fundProfitPercentage,
+                    100
+                ),
+                int256(endBalance)
+            ));
+
+        if (endBalance - fundFee > baseBalance) 
+            fundProfit = endBalance - fundFee;
+
         emit FundStatusChanged(uint256(fundStatus));
     }
 
@@ -221,6 +238,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             _withdraw(deposits[i]);
             delete deposits[i];
         }
+
         isDepositsWithdrawed = true;
 
         emit AllDepositsWithdrawed();
@@ -236,7 +254,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         uint256 platformFeeAmount;
 
-        if (baseBalance >= endBalance) { // take 3% fee
+        if (baseBalance >= endBalance) {
+            // take 3% fee
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
@@ -246,7 +265,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                     int256(address(this).balance)
                 )
             );
-        } else { // otherwise, 90% to fund manager, 10% - to eFund platform
+        } else {
+            // otherwise, 90% to fund manager, 10% - to eFund platform
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
@@ -412,7 +432,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function _withdraw(DepositInfo storage info) private {
         if (baseBalance == 0) {
-            info.depositOwner.transfer(info.depositAmount);
+            info.depositOwner.transfer(info.depositAmount); // if baseBalance 0 - it`s a withdrawBeforeFundStated call
             return;
         }
 
@@ -422,13 +442,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 int256(baseBalance)
             );
 
-        eFund.transfer(
-            info.depositOwner,
+        info.depositOwner.transfer(
             uint256(
                 int256(info.depositAmount) +
                     MathPercentage.calculateNumberFromPercentage(
                         percentage,
-                        int256(endBalance) - int256(baseBalance)
+                        int256(endBalance) - int256(baseBalance) - int256(fundProfit)
                     )
             )
         );
