@@ -31,20 +31,22 @@ library AddressArrayExstensions {
 library MathPercentage {
     using OZSignedSafeMath for int256;
 
-    function calculateNumberFromNumberProcentage(int256 a, int256 b)
+    int256 constant basePoints = 100000;
+
+    function calculateNumberFromNumberPercentage(int256 a, int256 b)
         internal
         pure
         returns (int256)
     {
-        return a.mul(10**18).div(b);
+        return a.mul(basePoints).div(b);
     }
 
-    function calculateNumberFromProcentage(int256 p, int256 all)
+    function calculateNumberFromPercentage(int256 p, int256 all)
         internal
         pure
         returns (int256)
     {
-        return int256(all.mul(p).div(10**18));
+        return int256(all.mul(p).div(basePoints));
     }
 }
 
@@ -435,7 +437,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         }
 
         int256 percentage =
-            MathPercentage.calculateNumberFromNumberProcentage(
+            MathPercentage.calculateNumberFromNumberPercentage(
                 int256(info.depositAmount),
                 int256(baseBalance)
             );
@@ -444,23 +446,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             info.depositOwner,
             uint256(
                 int256(info.depositAmount) +
-                    MathPercentage.calculateNumberFromProcentage(
+                    MathPercentage.calculateNumberFromPercentage(
                         percentage,
                         int256(endBalance) - int256(baseBalance)
                     )
             )
         );
-
-        // if (this.getCurrentBalanceInWei() != 0) {
-        //     info.depositOwner.transfer(
-        //         uint256(
-        //             MathPercentage.calculateNumberFromProcentage(
-        //                 percentage,
-        //                 int256(endBalance)
-        //             )
-        //         )
-        //     );
-        // }
     }
 
     /// @dev create path array for uni|cake swap
