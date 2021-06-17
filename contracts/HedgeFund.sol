@@ -6,51 +6,12 @@ import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
 import "./Interfaces/IFixedOracle.sol";
-
-library AddressArrayExstensions {
-    function removeAt(address payable[] storage arr, uint256 i) internal {
-        if (arr.length == 0) return;
-
-        arr[i] = arr[arr.length - 1];
-        arr.pop();
-    }
-
-    function contains(address payable[] storage arr, address val)
-        internal
-        view
-        returns (bool)
-    {
-        for (uint256 i; i < arr.length; i++) {
-            if (arr[i] == val) return true;
-        }
-
-        return false;
-    }
-}
-
-library MathPercentage {
-    using OZSignedSafeMath for int256;
-
-    int256 constant basePoints = 100000;
-
-    function calculateNumberFromNumberPercentage(int256 a, int256 b)
-        internal
-        pure
-        returns (int256)
-    {
-        return a.mul(basePoints).div(b);
-    }
-
-    function calculateNumberFromPercentage(int256 p, int256 all)
-        internal
-        pure
-        returns (int256)
-    {
-        return int256(all.mul(p).div(basePoints));
-    }
-}
+import "./Libraries/AddressArrayExtensions.sol";
+import "./Libraries/MathPercentage.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {
+    using AddressArrayExstensions for address payable[];
+
     event NewDeposit(
         address payable indexed _depositOwner,
         uint256 indexed _id,
@@ -63,7 +24,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable indexed _depositOwner,
         uint256 indexed _id
     );
-    
+
     event TokensSwap(
         address _tokenFrom,
         address _tokenTo,
@@ -73,29 +34,25 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     event AllDepositsWithdrawed();
 
-    using AddressArrayExstensions for address payable[];
-
-    UniswapV2Router02 private router;
+    UniswapV2Router02 private immutable router;
 
     DepositInfo[] public deposits;
 
     FundStatus public fundStatus;
 
-    IUFundOracle public oracle;
+    IUFundOracle public immutable oracle;
 
-    IERC20 public eFund;
+    IERC20 public immutable eFund;
 
-    uint256 public softCap;
+    uint256 public immutable softCap;
 
-    uint256 public hardCap;
-
-    address public uniswapv2RouterAddress;
+    uint256 public immutable hardCap;
 
     uint256 public constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    address payable public fundManager;
+    address payable public immutable fundManager;
 
-    uint256 public fundDurationMonths;
+    uint256 public immutable fundDurationMonths;
 
     uint256 public fundStartTimestamp;
 
@@ -152,7 +109,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable[] memory _allowedTokenAddresses
     ) public {
         require(_validateDuration(_durationMonths), "Invalid duration");
-        uniswapv2RouterAddress = _swapRouterContract;
         router = UniswapV2Router02(_swapRouterContract);
         eFund = IERC20(_eFundContract);
         oracle = IUFundOracle(_oracleContract);
@@ -168,8 +124,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     function getCurrentBalanceInWei() external view override returns (uint256) {
         return address(this).balance;
     }
-
-
 
     function getEndTime() external view override returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths * 30 days);
@@ -309,7 +263,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Output amount is lower then {amountOutMin}"
         );
 
-        IERC20(tokenFrom).approve(uniswapv2RouterAddress, amountIn);
+        IERC20(tokenFrom).approve(address(router), amountIn);
 
         uint256[] memory amounts =
             router.swapExactTokensForTokens(
@@ -347,7 +301,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Output amount is lower then {amountOutMin}"
         );
 
-        IERC20(tokenFrom).approve(uniswapv2RouterAddress, amountIn);
+        IERC20(tokenFrom).approve(address(router), amountIn);
 
         uint256[] memory amounts =
             router.swapExactTokensForETH(
@@ -359,7 +313,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             );
 
         emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-
 
         return amounts[1];
     }
@@ -411,18 +364,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             uint256 amountIn =
                 IERC20(boughtTokenAddresses[i]).balanceOf(address(this));
 
-            IERC20(boughtTokenAddresses[i]).approve(
-                uniswapv2RouterAddress,
-                amountIn
-            );
+            IERC20(boughtTokenAddresses[i]).approve(address(router), amountIn);
 
-            uint256[] memory amounts = router.swapExactTokensForETH(
-                amountIn,
-                0,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
+            uint256[] memory amounts =
+                router.swapExactTokensForETH(
+                    amountIn,
+                    0,
+                    path,
+                    address(this),
+                    block.timestamp + depositTXDeadlineSeconds
+                );
 
             emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
 
