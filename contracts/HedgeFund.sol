@@ -66,6 +66,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     bool public isDepositsWithdrawed;
 
+    int256 public constant managerProfitPercentage = 90; // 90%
+
+    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+
     modifier onlyForFundManager() {
         require(
             msg.sender == fundManager || msg.sender == address(this),
@@ -125,6 +129,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return address(this).balance;
     }
 
+    /// @notice get end time of the fund
     function getEndTime() external view override returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths * 30 days);
     }
@@ -166,10 +171,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         this.swapAllTokensIntoETH();
 
         fundStatus = FundStatus.COMPLETED;
-
-        // if(endBalance - baseBalance > 0) {
-        //     endBalance = eFund.balanceOf(address(this)) - ;
-        // }
 
         endBalance = this.getCurrentBalanceInWei();
         emit FundStatusChanged(uint256(fundStatus));
@@ -225,17 +226,46 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         emit AllDepositsWithdrawed();
     }
 
-    function withdrawToManager() public onlyForFundManager {
+    function withdrawToManager() external override {
         require(
             isDepositsWithdrawed,
             "Can withdraw only after all depositst were withdrawed"
         );
 
+        require(address(this).balance > 0, "Balance is 0, nothing to withdraw");
+
+        uint256 platformFeeAmount;
+
+        if (baseBalance >= endBalance) { // take 3% fee
+            platformFeeAmount = uint256(
+                MathPercentage.calculateNumberFromPercentage(
+                    MathPercentage.translsatePercentageFromBase(
+                        noProfitFundFee,
+                        100
+                    ),
+                    int256(address(this).balance)
+                )
+            );
+        } else { // otherwise, 90% to fund manager, 10% - to eFund platform
+            platformFeeAmount = uint256(
+                MathPercentage.calculateNumberFromPercentage(
+                    MathPercentage.translsatePercentageFromBase(
+                        managerProfitPercentage,
+                        100
+                    ),
+                    int256(address(this).balance)
+                )
+            );
+        }
+
+        // todo: where to send platformFee?
+        // sending fee...
+
+        // sending the rest to fund manager
         fundManager.transfer(this.getCurrentBalanceInWei());
     }
 
     /* trading section */
-
     function swapERC20ToERC20(
         address payable tokenFrom,
         address payable tokenTo,
@@ -286,12 +316,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountIn,
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        address[] memory path = _createPath(tokenFrom, router.WETH());
-
         require(
             boughtTokenAddresses.contains(tokenFrom),
             "You need to own {tokenFrom} first"
         );
+
+        address[] memory path = _createPath(tokenFrom, router.WETH());
 
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
@@ -313,7 +343,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             );
 
         emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-
         return amounts[1];
     }
 

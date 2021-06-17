@@ -20,6 +20,8 @@ interface IHedgeFund {
 
     function getCurrentBalanceInWei() external view returns (uint256);
 
+    function withdrawToManager() external;
+
     //function getCurrentBalanceInEFund() external view returns (uint256);
 
     //function getCurrentBalanceTotal() external returns (uint256);
