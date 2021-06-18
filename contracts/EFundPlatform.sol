@@ -7,6 +7,8 @@ import "./FundFactory.sol";
 contract EFundPlatform is Ownable {
     FundFactory public immutable fundFactory;
 
+    IERC20 public immutable eFund;
+
     mapping(address => bool) public isFund;
 
     mapping(address => uint256) public managersFundActivityStartedAt;
@@ -23,19 +25,35 @@ contract EFundPlatform is Ownable {
 
     int256 public constant goldPeriodRewardPercentage = 30; // 30%
 
-
     modifier onlyForFundContract() {
         require(isFund[msg.sender], "Caller address is not a fund");
         _;
     }
 
-    constructor(address _fundFactory) public {
+    constructor(address _fundFactory, address _efundToken) public {
         require(_fundFactory != address(0), "Invalid token address provided");
 
         fundFactory = FundFactory(_fundFactory);
+        eFund = IERC20(_efundToken);
     }
 
-    function getAllFunds() public view returns (address[] memory ) {
+    function createFund(
+        address payable _swapRouterContract,
+        uint256 _fundDurationInMonths,
+        address payable[] memory _allowedTokens
+    ) public payable returns (address) {
+        address newFundAddress = fundFactory.createFund{value: msg.value}(
+            _swapRouterContract,
+            payable(address(eFund)),
+            msg.sender,
+            _fundDurationInMonths,
+            _allowedTokens
+        );
+        
+        funds.push(newFundAddress);
+    }
+
+    function getAllFunds() public view returns (address[] memory) {
         return funds;
     }
 

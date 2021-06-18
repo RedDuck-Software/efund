@@ -8,28 +8,17 @@ import "./UFundOracle.sol";
 import "./Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
-    uint256 public immutable softCap = 100000000000000000;
-    uint256 public immutable hardCap = 1000000000000000000000;
-
-    address[] public funds;
-
-    IUFundOracle public oracle;
-    IERC20 public eFundToken;
-
-    constructor(address _oracleAddress, address payable _eFundAddress) public {
-        oracle = IUFundOracle(_oracleAddress);
-        eFundToken = IERC20(_eFundAddress);
-    }
-
-    function getAllFunds() public view returns (address[] memory){ 
-        return funds;
-    }
+    uint256 public constant softCap = 100000000000000000;
+    uint256 public constant hardCap = 1000000000000000000000;
 
     function createFund(
         address payable _swapRouterContract,
+        address payable _eFundToken,
+        address payable _fundOwner,
+        address _eFundPlatform,
         uint256 _fundDurationInMonths,
         address payable[] calldata allowedTokens
-    ) external payable override returns (address fundAddress) {
+    ) external payable override returns (address) {
         require(
             msg.value >= softCap && msg.value <= hardCap,
             "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
@@ -38,55 +27,16 @@ contract FundFactory is IFundFactory {
         HedgeFund newFund =
             new HedgeFund(
                 _swapRouterContract,
-                payable(address(eFundToken)),
-                payable(address(oracle)),
+                _eFundToken,
+                _eFundPlatform,
                 softCap,
                 hardCap,
-                msg.sender,
+                _fundOwner,
                 _fundDurationInMonths,
                 allowedTokens
             );
 
         _sendEth(payable(address(newFund)), msg.value);
-
-        funds.push(address(newFund));
-
-        return address(newFund);
-    }
-
-    function createFundWithEFund(
-        uint256 _initialDepositTokens,
-        address payable _swapRouterContract,
-        uint256 _fundDurationInMonths,
-        address payable[] calldata allowedTokens
-    ) external override returns (address fundAddress) {
-        require(
-            oracle.getPriceInETH(_initialDepositTokens) >= softCap &&
-                oracle.getPriceInETH(_initialDepositTokens) <= hardCap,
-            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH in eFund equivalent"
-        );
-
-        eFundToken.transferFrom(
-            msg.sender,
-            address(this),
-            oracle.getPriceInEFund(softCap)
-        );
-
-        HedgeFund newFund =
-            new HedgeFund(
-                _swapRouterContract,
-                payable(address(eFundToken)),
-                payable(address(oracle)),
-                softCap,
-                hardCap,
-                msg.sender,
-                _fundDurationInMonths,
-                allowedTokens
-            );
-
-        eFundToken.transfer(address(newFund), oracle.getPriceInEFund(softCap));
-
-        funds.push(address(newFund));
 
         return address(newFund);
     }

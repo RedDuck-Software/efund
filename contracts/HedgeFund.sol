@@ -8,6 +8,7 @@ import "./Interfaces/IFundTrade.sol";
 import "./Interfaces/IFixedOracle.sol";
 import "./Libraries/AddressArrayExtensions.sol";
 import "./Libraries/MathPercentage.sol";
+import "./EFundPlatform.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {
     using AddressArrayExstensions for address payable[];
@@ -38,9 +39,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     FundStatus public fundStatus;
 
-    IUFundOracle public immutable oracle;
-
     IERC20 public immutable eFund;
+
+    EFundPlatform public immutable eFundPlatform;
 
     uint256 public immutable softCap;
 
@@ -108,8 +109,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     constructor(
         address payable _swapRouterContract,
-        address payable _eFundContract,
-        address _oracleContract,
+        address payable _eFundTokenContract,
+        address  _eFundPlatform,
         uint256 _softCap,
         uint256 _hardCap,
         address payable _managerAddress,
@@ -117,9 +118,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable[] memory _allowedTokenAddresses
     ) public {
         require(_validateDuration(_durationMonths), "Invalid duration");
+        
         router = UniswapV2Router02(_swapRouterContract);
-        eFund = IERC20(_eFundContract);
-        oracle = IUFundOracle(_oracleContract);
+        eFund = IERC20(_eFundTokenContract);
+        eFundPlatform = EFundPlatform(_eFundPlatform);
+
         fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
         fundDurationMonths = _durationMonths;
