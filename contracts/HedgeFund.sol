@@ -67,13 +67,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     int256 public constant managerProfitPercentage = 90; // 90%
 
-    int256 public constant fundProfitPercentage = 1; // 1% - 1% of end balance will not be withdrawed to investors. Used only if fund have some profit
-
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
+    uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
+    
     UniswapV2Router02 private immutable router;
 
-    uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     modifier onlyForFundManager() {
         require(
@@ -185,8 +184,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        fundProfitPercentage,
-                        100
+                        eFundPlatform.calculateRewardPercentage(fundManager),
+                        eFundPlatform.percentageBase
                     ),
                     int256(endBalance)
                 )
@@ -488,6 +487,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     struct DepositInfo {
         address payable depositOwner;
-        uint256 depositAmount; // deposit amount in eFund
+        uint256 depositAmount;
     }
 }

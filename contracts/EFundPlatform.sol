@@ -19,12 +19,16 @@ contract EFundPlatform is Ownable {
 
     uint256 public constant goldPeriodStart = 6 * 30 days; // 6 months
 
-    int256 public constant bronzePeriodRewardPercentage = 10; // 10%
+    
+    int256 public constant percentageBase = 100;
 
-    int256 public constant silverPeriodRewardPercentage = 20; // 20%
+    int256 private constant bronzePeriodRewardPercentage = 10; // 10%
 
-    int256 public constant goldPeriodRewardPercentage = 30; // 30%
+    int256 private constant silverPeriodRewardPercentage = 20; // 20%
 
+    int256 private constant goldPeriodRewardPercentage = 30; // 30%
+
+   
     modifier onlyForFundContract() {
         require(isFund[msg.sender], "Caller address is not a fund");
         _;
