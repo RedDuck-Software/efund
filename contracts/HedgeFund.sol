@@ -281,10 +281,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             );
         }
 
-        // todo: where to send platformFee?
-        // sending fee...
+        // send fee to eFundPlatform
+        payable(address(eFundPlatform)).transfer(platformFeeAmount);
 
-        // sending the rest to fund manager
+        // sending the rest to the fund manager
         fundManager.transfer(this.getCurrentBalanceInWei());
     }
 
