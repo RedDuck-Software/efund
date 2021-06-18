@@ -24,11 +24,11 @@ library MathPercentage {
         return int256(all.mul(p).div(percentageBase));
     }
 
-    function translsatePercentageFromBase(int256 p, int256 pBase)
+    function translsatePercentageFromBase(int256 p, uint256 pBase)
         public
         pure
         returns (int256)
     {
-        return p.mul(percentageBase).div(pBase);
+        return p.mul(percentageBase).div(int256(pBase));
     }
 }

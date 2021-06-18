@@ -5,7 +5,6 @@ import "./SharedImports.sol";
 import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
-import "./Interfaces/IFixedOracle.sol";
 import "./Libraries/AddressArrayExtensions.sol";
 import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
@@ -185,7 +184,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
                         eFundPlatform.calculateRewardPercentage(fundManager),
-                        eFundPlatform.percentageBase
+                        eFundPlatform.percentageBase()
                     ),
                     int256(endBalance)
                 )

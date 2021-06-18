@@ -8,7 +8,8 @@ interface IFundFactory {
         address payable _swapRouterContract,
         address payable _eFundToken,
         address payable _fundOwner,
+        address _eFundPlatform,
         uint256 _fundDurationInMonths,
         address payable[] calldata allowedTokens
-    ) external payable returns (address) {
+    ) external payable returns (address) ;
 }

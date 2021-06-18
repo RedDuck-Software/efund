@@ -19,8 +19,8 @@ contract EFundPlatform is Ownable {
 
     uint256 public constant goldPeriodStart = 6 * 30 days; // 6 months
 
-    
-    int256 public constant percentageBase = 100;
+    uint256 public constant percentageBase = 100;
+
 
     int256 private constant bronzePeriodRewardPercentage = 10; // 10%
 
@@ -50,6 +50,7 @@ contract EFundPlatform is Ownable {
             _swapRouterContract,
             payable(address(eFund)),
             msg.sender,
+            address(this),
             _fundDurationInMonths,
             _allowedTokens
         );

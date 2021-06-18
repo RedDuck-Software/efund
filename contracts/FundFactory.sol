@@ -4,7 +4,6 @@ pragma solidity ^0.6.6; // because of uni|cake swap
 import "./SharedImports.sol";
 import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
-import "./UFundOracle.sol";
 import "./Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
