@@ -1,29 +1,30 @@
 const { ethers } = require("hardhat");
 
-async function deployOracle() { 
-    const Oracle = await ethers.getContractFactory("UFundOracle");
-    return await Oracle.deploy();
+async function deployERC20() { 
+    const eFundERC20 = await ethers.getContractFactory("eFundERC20");
+    return await eFundERC20.deploy();
 }
 
-async function deployErc20() { 
-    const EFundERC20 = await ethers.getContractFactory("eFundERC20");
-    return await EFundERC20.deploy();
-}
-
-async function deployContractFactory(erc20,oracle) { 
+async function deployContractFactory() { 
     const Factory = await ethers.getContractFactory("FundFactory");
-    return await Factory.deploy(erc20.address,oracle.address);
+    return await Factory.deploy();
 }
+
+async function deployEFundPlatform(factory,erc20) { 
+    const Platform = await ethers.getContractFactory("EFundPlatform");
+    return await Platform.deploy(factory.address,erc20.address);
+}
+
 
 async function main() {
-    var erc20 = await deployErc20();
+    var erc20 = await deployERC20();
     console.log("eFundERC20 deployed to: '\x1b[36m%s\x1b[0m'", erc20.address);
 
-    var oracle = await deployOracle();
-    console.log("Oracle deployed to: '\x1b[36m%s\x1b[0m'", oracle.address);
-
-    var factory = await deployContractFactory(erc20,oracle);
+    var factory = await deployContractFactory(erc20);
     console.log("Factory deployed to: '\x1b[36m%s\x1b[0m'", factory.address);
+
+    var platform = await deployEFundPlatform(factory,erc20);
+    console.log("EFundPlatform deployed to: '\x1b[36m%s\x1b[0m'", platform.address);
 }
 
 

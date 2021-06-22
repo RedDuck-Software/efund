@@ -25,7 +25,7 @@ library MathPercentage {
     }
 
     function translsatePercentageFromBase(int256 p, uint256 pBase)
-        public
+        internal
         pure
         returns (int256)
     {
