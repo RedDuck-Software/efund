@@ -13,3 +13,8 @@ import {
 import {
     SignedSafeMath as OZSignedSafeMath
 } from "@openzeppelin/contracts/math/SignedSafeMath.sol";
+
+
+import {
+    SafeMath as OZSafeMath
+} from "@openzeppelin/contracts/math/SafeMath.sol";

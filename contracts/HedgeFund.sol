@@ -69,9 +69,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
-    
-    UniswapV2Router02 private immutable router;
 
+    UniswapV2Router02 private immutable router;
 
     modifier onlyForFundManager() {
         require(
@@ -108,7 +107,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     constructor(
         address payable _swapRouterContract,
         address payable _eFundTokenContract,
-        address  _eFundPlatform,
+        address payable _eFundPlatform,
         uint256 _softCap,
         uint256 _hardCap,
         address payable _managerAddress,
@@ -116,7 +115,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable[] memory _allowedTokenAddresses
     ) public {
         require(_validateDuration(_durationMonths), "Invalid duration");
-        
+
         router = UniswapV2Router02(_swapRouterContract);
         eFund = IERC20(_eFundTokenContract);
         eFundPlatform = EFundPlatform(_eFundPlatform);
@@ -168,12 +167,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
-        require(
-            block.timestamp > this.getEndTime(),
-            "Fund is didn`t finish yet"
-        );
-
-        this.swapAllTokensIntoETH();
+        // require(
+        //     block.timestamp > this.getEndTime(),
+        //     "Fund is didn`t finish yet"
+        // );
+        // commented for testing
 
         fundStatus = FundStatus.COMPLETED;
 
@@ -183,7 +181,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        eFundPlatform.calculateRewardPercentage(fundManager),
+                        eFundPlatform.calculateManagerRewardPercentage(
+                            fundManager
+                        ),
                         eFundPlatform.percentageBase()
                     ),
                     int256(endBalance)
