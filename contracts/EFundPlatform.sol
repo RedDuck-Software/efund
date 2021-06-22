@@ -24,6 +24,9 @@ contract EFundPlatform {
 
     mapping(address => uint256) public nextAvailableRewardClaimDate;
 
+    mapping(address => bool) public isExcludedFromReward;
+
+
     HedgeFund[] public funds;
 
     uint256 public constant rewardCycleBlock = 7 days;
@@ -153,6 +156,10 @@ contract EFundPlatform {
     ) private pure returns (uint256) {
         uint256 reward = currentBNBPool.mul(currentBalance).div(totalSupply);
         return reward;
+    }
+
+    function _excludeFromReward(address _address) private {
+        isExcludedFromReward[_address] = true;
     }
 
 
