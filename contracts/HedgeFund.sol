@@ -56,7 +56,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
-    uint256 public fundProfit;
+    uint256 public lockedManagerProfit;
 
     address payable[] public boughtTokenAddresses;
 
@@ -64,7 +64,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     bool public isDepositsWithdrawed;
 
-    int256 public constant managerProfitPercentage = 90; // 90%
+    int256 public constant managerProfitPercentage = 90; // 90% 
 
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
@@ -163,6 +163,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyForFundManager
     {
         fundStatus = FundStatus.CLOSED;
+        eFundPlatform.closeFund();
+        
         emit FundStatusChanged(uint256(fundStatus));
     }
 
@@ -186,12 +188,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                         ),
                         eFundPlatform.percentageBase()
                     ),
-                    int256(endBalance)
+                    int256(endBalance)  
                 )
             );
 
         if (endBalance - fundFee > baseBalance)
-            fundProfit = endBalance - fundFee;
+            lockedManagerProfit = fundFee;
 
         emit FundStatusChanged(uint256(fundStatus));
     }
@@ -452,7 +454,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                         percentage,
                         int256(endBalance) -
                             int256(baseBalance) -
-                            int256(fundProfit)
+                            int256(lockedManagerProfit)
                     )
             )
         );

@@ -127,7 +127,10 @@ contract EFundPlatform {
         returns (uint256 reward)
     {
         uint256 _totalSupply = 
-            eFund.totalSupply();
+            eFund.totalSupply()
+            .sub(eFund.balanceOf(address(this)))
+            .sub(eFund.balanceOf(address(0)));
+        
 
         return _calculateHolderReward(
             eFund.balanceOf(address(ofAddress)),
