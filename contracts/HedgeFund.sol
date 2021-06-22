@@ -62,9 +62,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     address payable[] public allowedTokenAddresses;
 
+    mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
+
+    mapping(address => bool) public isTokenAllowed;
+
     bool public isDepositsWithdrawed;
 
-    int256 public constant managerProfitPercentage = 90; // 90% 
+    int256 public constant managerProfitPercentage = 90; // 90%
 
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
@@ -127,6 +131,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         hardCap = _hardCap;
         allowedTokenAddresses = _allowedTokenAddresses;
         isDepositsWithdrawed = false;
+
+        for(uint256 i; i < _allowedTokenAddresses.length; i++) 
+            isTokenAllowed[_allowedTokenAddresses[i]] = true;
     }
 
     function getCurrentBalanceInWei() external view override returns (uint256) {
@@ -164,7 +171,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     {
         fundStatus = FundStatus.CLOSED;
         eFundPlatform.closeFund();
-        
+
         emit FundStatusChanged(uint256(fundStatus));
     }
 
@@ -188,12 +195,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                         ),
                         eFundPlatform.percentageBase()
                     ),
-                    int256(endBalance)  
+                    int256(endBalance)
                 )
             );
 
-        if (endBalance - fundFee > baseBalance)
-            lockedManagerProfit = fundFee;
+        if (endBalance - fundFee > baseBalance) lockedManagerProfit = fundFee;
 
         emit FundStatusChanged(uint256(fundStatus));
     }
@@ -298,13 +304,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         require(
-            boughtTokenAddresses.contains(tokenFrom),
+            isTokenBought[tokenFrom],
             "You must to own {tokenFrom} first"
         );
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
-                : allowedTokenAddresses.contains(tokenTo),
+                : isTokenAllowed[tokenTo],
             "Trading with not allowed tokens"
         );
 
@@ -329,8 +335,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (!boughtTokenAddresses.contains(tokenTo))
+        if (!isTokenBought[tokenTo]){ 
             boughtTokenAddresses.push(tokenTo);
+            isTokenBought[tokenTo] = true;
+        }
 
         emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
         return amounts[1];
@@ -342,7 +350,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         require(
-            boughtTokenAddresses.contains(tokenFrom),
+            isTokenBought[tokenFrom],
             "You need to own {tokenFrom} first"
         );
 
@@ -379,7 +387,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
-                : allowedTokenAddresses.contains(tokenTo),
+                : isTokenAllowed[tokenTo],
             "Trading with not allowed tokens"
         );
 
@@ -400,8 +408,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 block.timestamp + depositTXDeadlineSeconds
             );
 
-        if (!boughtTokenAddresses.contains(tokenTo))
+        if (!isTokenBought[tokenTo]){ 
             boughtTokenAddresses.push(tokenTo);
+            isTokenBought[tokenTo] = true;
+        }
 
         emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
 
@@ -431,6 +441,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
             emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
 
+            isTokenBought[boughtTokenAddresses[i]] = false;
             delete boughtTokenAddresses[i];
         }
     }
