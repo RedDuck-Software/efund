@@ -14,7 +14,7 @@ contract FundFactory is IFundFactory {
         address payable _swapRouterContract,
         address payable _eFundToken,
         address payable _fundOwner,
-        address _eFundPlatform,
+        address payable _eFundPlatform,
         uint256 _fundDurationInMonths,
         address payable[] calldata allowedTokens
     ) external payable override returns (address) {

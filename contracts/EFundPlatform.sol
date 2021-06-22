@@ -45,11 +45,6 @@ contract EFundPlatform {
         _;
     }
 
-    modifier onlyForFundManager() {
-        require(managerFundActivity[msg.sender].isValue, "Caller address is not a fund manager");
-        _;
-    }
-
     constructor(address _fundFactory, address _efundToken) public {
         require(_fundFactory != address(0), "Invalid fundFactory address provided");
         require(_efundToken != address(0), "Invalid eFund token address provided");
@@ -130,7 +125,7 @@ contract EFundPlatform {
             eFund.totalSupply()
             .sub(eFund.balanceOf(address(this)))
             .sub(eFund.balanceOf(address(0)));
-        
+
 
         return _calculateHolderReward(
             eFund.balanceOf(address(ofAddress)),
@@ -142,9 +137,10 @@ contract EFundPlatform {
     function calculateManagerRewardPercentage(address _address)
         public
         view
-        onlyForFundManager
         returns (int256)
     {
+        require(managerFundActivity[_address].isValue, "Address is not a fund manager");
+
         return
             _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityDurationMonths);
     }
