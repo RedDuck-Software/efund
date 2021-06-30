@@ -5,13 +5,10 @@ import "./SharedImports.sol";
 import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
-import "./Libraries/AddressArrayExtensions.sol";
 import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {
-    using AddressArrayExstensions for address payable[];
-
     event NewDeposit(
         address payable indexed _depositOwner,
         uint256 indexed _id,
