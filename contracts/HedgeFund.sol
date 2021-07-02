@@ -71,7 +71,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    UniswapV2Router02 private immutable router;
+    UniswapV2Router02 public immutable router;
 
     modifier onlyForFundManager() {
         require(
