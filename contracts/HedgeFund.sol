@@ -152,7 +152,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function getAllowedTokensAddresses() public view returns (address payable[] memory) { 
-        return boughtTokenAddresses;
+        return allowedTokenAddresses;
     }
 
     function setFundStatusActive()
