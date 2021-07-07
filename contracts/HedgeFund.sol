@@ -147,6 +147,14 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return router.WETH();
     }
 
+    function getBoughtTokensAddresses() public view returns (address payable[] memory){ 
+        return boughtTokenAddresses;
+    }
+
+    function getAllowedTokensAddresses() public view returns (address payable[] memory) { 
+        return boughtTokenAddresses;
+    }
+
     function setFundStatusActive()
         external
         override
