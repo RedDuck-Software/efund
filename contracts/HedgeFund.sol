@@ -303,26 +303,30 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     /* trading section */
     function swapERC20ToERC20(
-        address payable tokenFrom,
-        address payable tokenTo,
+        address[] calldata path,
         uint256 amountIn,
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        require(
-            isTokenBought[tokenFrom],
-            "You must to own {tokenFrom} first"
-        );
-        require(
-            allowedTokenAddresses.length == 0
-                ? true // if empty array specified, all tokens are valid for trade
-                : isTokenAllowed[tokenTo],
-            "Trading with not allowed tokens"
-        );
+        require(path.length >= 2, "Path must be >= 2");
+        
+        address tokenFrom = path[0];
+        address tokenTo = path[path.length - 1];
 
-        address[] memory path = _createPath(tokenFrom, tokenTo);
-
+        for(uint i; i < path.length; i++) {
+            require(
+                allowedTokenAddresses.length == 0
+                    ? true // if empty array specified, all tokens are valid for trade
+                    : isTokenAllowed[path[i]],
+                "Trading with not allowed tokens"
+            );
+            require(
+                isTokenBought[tokenFrom],
+                "You must to own {tokenFrom} first"
+            );
+        }
+        
         // how much {tokenTo} we can buy with {tokenFrom} token
-        uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
+        uint256 amountOut = router.getAmountsOut(amountIn, path)[path.length - 1];
 
         require(
             amountOut >= amountOutMin,
@@ -341,11 +345,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             );
 
         if (!isTokenBought[tokenTo]){ 
-            boughtTokenAddresses.push(tokenTo);
+            boughtTokenAddresses.push(payable(tokenTo));
             isTokenBought[tokenTo] = true;
         }
 
-        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
+        emit TokensSwap(tokenFrom, tokenTo, amountIn, amounts[path.length - 1]);
         return amounts[1];
     }
 
