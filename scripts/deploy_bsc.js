@@ -1,5 +1,7 @@
 const { ethers } = require("hardhat");
 
+const { BigNumber, utils } = ethers;
+
 async function deployBep20() { 
     const eFundBEP20 = await ethers.getContractFactory("eFundBEP20");
     return await eFundBEP20.deploy();
@@ -10,9 +12,9 @@ async function deployContractFactory() {
     return await Factory.deploy();
 }
 
-async function deployEFundPlatform(factory,bep20) { 
+async function deployEFundPlatform(factory,bep20, hardCap, softCap) { 
     const Platform = await ethers.getContractFactory("EFundPlatform");
-    return await Platform.deploy(factory.address,bep20.address);
+    return await Platform.deploy(factory.address,bep20.address, hardCap, softCap);
 }
 
 
@@ -23,10 +25,9 @@ async function main() {
     var factory = await deployContractFactory(bep20);
     console.log("Factory deployed to: '\x1b[36m%s\x1b[0m'", factory.address);
 
-    var platform = await deployEFundPlatform(factory,bep20);
+    var platform = await deployEFundPlatform(factory,bep20, BigNumber.from('100000000000000000'), BigNumber.from('100000000000000000000'));
     console.log("EFundPlatform deployed to: '\x1b[36m%s\x1b[0m'", platform.address);
 }
-
 
 
   main()
