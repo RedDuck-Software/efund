@@ -42,15 +42,23 @@ contract EFundPlatform {
     int256 public constant silverPeriodRewardPercentage = 20; // 20%
 
     int256 public constant goldPeriodRewardPercentage = 30; // 30%
+    
+    uint256 public immutable softCap;
+
+    uint256 public immutable hardCap;
 
     modifier onlyForFundContract() {
         require(isFund[msg.sender], "Caller address is not a fund");
         _;
     }
 
-    constructor(address _fundFactory, address _efundToken) public {
+    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap ) public {
         require(_fundFactory != address(0), "Invalid fundFactory address provided");
         require(_efundToken != address(0), "Invalid eFund token address provided");
+        require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
+
+        hardCap = _hardCap;
+        softCap = _softCap;
 
         fundFactory = FundFactory(_fundFactory);
         eFund = IERC20(_efundToken);
@@ -59,8 +67,23 @@ contract EFundPlatform {
     function createFund(
         address payable _swapRouter,
         uint256 _fundDurationInMonths,
+        uint256 _softCap, 
+        uint256 _hardCap, 
         address payable[] memory _allowedTokens
     ) public payable returns (address) {
+        require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
+
+        require(
+            _hardCap < hardCap && _softCap < softCap,
+            "Soft cap must be > 0.1 ETH and hard cap < 100 ETH"
+        );
+
+        require(
+            msg.value >= _softCap && msg.value <= _hardCap,
+            "value is outside of caps"
+        );
+
+
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(
                 _swapRouter,
@@ -68,6 +91,8 @@ contract EFundPlatform {
                 msg.sender,
                 address(this),
                 _fundDurationInMonths,
+                _softCap,
+                _hardCap,
                 _allowedTokens
             );
 
@@ -88,7 +113,8 @@ contract EFundPlatform {
         HedgeFund fund = HedgeFund(msg.sender); // sender is a contract 
         require(fund.getEndTime() <= block.timestamp, "Fund is not completed");
 
-        managerFundActivity[fund.fundManager()].fundActivityDurationMonths += fund.fundDurationMonths();
+        uint256 _curActivity = managerFundActivity[fund.fundManager()].fundActivityDuration;
+        managerFundActivity[fund.fundManager()].fundActivityDuration = _curActivity.add(fund.fundDuration());
     }
 
     function claimHolderReward() public {
@@ -105,8 +131,7 @@ contract EFundPlatform {
 
         // update rewardCycleBlock
         nextAvailableRewardClaimDate[msg.sender] =
-            block.timestamp +
-            rewardCycleBlock;
+            block.timestamp.add(rewardCycleBlock);
 
         (bool sent, ) = address(msg.sender).call{value: reward}("");
 
@@ -145,7 +170,7 @@ contract EFundPlatform {
         require(managerFundActivity[_address].isValue, "Address is not a fund manager");
 
         return
-            _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityDurationMonths);
+            _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityDuration);
     }
 
 
@@ -179,7 +204,7 @@ contract EFundPlatform {
     fallback() external payable {}
 
     struct FundManagerActivityInfo {
-        uint256 fundActivityDurationMonths;
+        uint256 fundActivityDuration;
         bool isValue;
     }
 }

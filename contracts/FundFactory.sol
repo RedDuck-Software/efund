@@ -7,19 +7,25 @@ import "./Interfaces/IFundFactory.sol";
 import "./Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
-    uint256 public constant softCap = 100000000000000000;
-    uint256 public constant hardCap = 1000000000000000000000;
+    
 
     function createFund(
         address payable _swapRouterContract,
         address payable _eFundToken,
         address payable _fundOwner,
         address payable _eFundPlatform,
-        uint256 _fundDurationInMonths,
+        uint256 _fundDuration,
+        uint256 _softCap,
+        uint256 _hardCap,
         address payable[] calldata allowedTokens
     ) external payable override returns (address) {
         require(
-            msg.value >= softCap && msg.value <= hardCap,
+            _hardCap > _softCap,
+            "Hard cap must be bigger than soft cap"
+        );
+
+        require(
+            msg.value >= _softCap && msg.value <= _hardCap,
             "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
         );
 
@@ -28,10 +34,10 @@ contract FundFactory is IFundFactory {
                 _swapRouterContract,
                 _eFundToken,
                 _eFundPlatform,
-                softCap,
-                hardCap,
+                _softCap,
+                _hardCap,
                 _fundOwner,
-                _fundDurationInMonths,
+                _fundDuration,
                 allowedTokens
             );
 

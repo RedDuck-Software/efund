@@ -9,7 +9,9 @@ interface IFundFactory {
         address payable _eFundToken,
         address payable _fundOwner,
         address payable _eFundPlatform,
-        uint256 _fundDurationInMonths,
+        uint256 _fundDuration,
+        uint256 _softCap,
+        uint256 _hardCap,
         address payable[] calldata allowedTokens
-    ) external payable returns (address) ;
+    ) external payable returns (address);
 }

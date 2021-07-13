@@ -45,7 +45,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     address payable public immutable fundManager;
 
-    uint256 public immutable fundDurationMonths;
+    uint256 public immutable fundDuration;
 
     uint256 public fundStartTimestamp;
 
@@ -112,10 +112,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 _softCap,
         uint256 _hardCap,
         address payable _managerAddress,
-        uint256 _durationMonths,
+        uint256 _duration,
         address payable[] memory _allowedTokenAddresses
     ) public {
-        require(_validateDuration(_durationMonths), "Invalid duration");
+        require(_validateDuration(_duration), "Invalid duration");
 
         router = UniswapV2Router02(_swapRouterContract);
         eFund = IERC20(_eFundTokenContract);
@@ -123,13 +123,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         fundManager = _managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDurationMonths = _durationMonths;
+        fundDuration = _duration;
         softCap = _softCap;
         hardCap = _hardCap;
         allowedTokenAddresses = _allowedTokenAddresses;
         isDepositsWithdrawed = false;
 
-        for(uint256 i; i < _allowedTokenAddresses.length; i++) 
+        for (uint256 i; i < _allowedTokenAddresses.length; i++)
             isTokenAllowed[_allowedTokenAddresses[i]] = true;
     }
 
@@ -139,7 +139,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     /// @notice get end time of the fund
     function getEndTime() external view override returns (uint256) {
-        return fundStartTimestamp + (fundDurationMonths * 30 days);
+        return fundStartTimestamp + (fundDuration);
     }
 
     /// @notice test function, using to determine is there connection with uni|cake swap or it`s not
@@ -147,11 +147,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return router.WETH();
     }
 
-    function getBoughtTokensAddresses() public view returns (address payable[] memory){ 
+    function getBoughtTokensAddresses()
+        public
+        view
+        returns (address payable[] memory)
+    {
         return boughtTokenAddresses;
     }
 
-    function getAllowedTokensAddresses() public view returns (address payable[] memory) { 
+    function getAllowedTokensAddresses()
+        public
+        view
+        returns (address payable[] memory)
+    {
         return allowedTokenAddresses;
     }
 
@@ -181,28 +189,25 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
-        // require(
-        //     block.timestamp > this.getEndTime(),
-        //     "Fund is didn`t finish yet"
-        // );
+        require(
+            block.timestamp > this.getEndTime(),
+            "Fund is didn`t finish yet"
+        );
         // commented for testing
 
         fundStatus = FundStatus.COMPLETED;
 
         endBalance = this.getCurrentBalanceInWei();
 
-        uint256 fundFee =
-            uint256(
-                MathPercentage.calculateNumberFromPercentage(
-                    MathPercentage.translsatePercentageFromBase(
-                        eFundPlatform.calculateManagerRewardPercentage(
-                            fundManager
-                        ),
-                        eFundPlatform.percentageBase()
-                    ),
-                    int256(endBalance)
-                )
-            );
+        uint256 fundFee = uint256(
+            MathPercentage.calculateNumberFromPercentage(
+                MathPercentage.translsatePercentageFromBase(
+                    eFundPlatform.calculateManagerRewardPercentage(fundManager),
+                    eFundPlatform.percentageBase()
+                ),
+                int256(endBalance)
+            )
+        );
 
         if (endBalance - fundFee > baseBalance) lockedManagerProfit = fundFee;
 
@@ -308,11 +313,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
         require(path.length >= 2, "Path must be >= 2");
-        
+
         address tokenFrom = path[0];
         address tokenTo = path[path.length - 1];
 
-        for(uint i; i < path.length; i++) {
+        for (uint256 i; i < path.length; i++) {
             require(
                 allowedTokenAddresses.length == 0
                     ? true // if empty array specified, all tokens are valid for trade
@@ -324,9 +329,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 "You must to own {tokenFrom} first"
             );
         }
-        
+
         // how much {tokenTo} we can buy with {tokenFrom} token
-        uint256 amountOut = router.getAmountsOut(amountIn, path)[path.length - 1];
+        uint256 amountOut = router.getAmountsOut(amountIn, path)[
+            path.length - 1
+        ];
 
         require(
             amountOut >= amountOutMin,
@@ -335,16 +342,15 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         IERC20(tokenFrom).approve(address(router), amountIn);
 
-        uint256[] memory amounts =
-            router.swapExactTokensForTokens(
-                amountIn,
-                amountOut,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
+        uint256[] memory amounts = router.swapExactTokensForTokens(
+            amountIn,
+            amountOut,
+            path,
+            address(this),
+            block.timestamp + depositTXDeadlineSeconds
+        );
 
-        if (!isTokenBought[tokenTo]){ 
+        if (!isTokenBought[tokenTo]) {
             boughtTokenAddresses.push(payable(tokenTo));
             isTokenBought[tokenTo] = true;
         }
@@ -358,10 +364,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountIn,
         uint256 amountOutMin
     ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        require(
-            isTokenBought[tokenFrom],
-            "You need to own {tokenFrom} first"
-        );
+        require(isTokenBought[tokenFrom], "You need to own {tokenFrom} first");
 
         address[] memory path = _createPath(tokenFrom, router.WETH());
 
@@ -375,14 +378,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         IERC20(tokenFrom).approve(address(router), amountIn);
 
-        uint256[] memory amounts =
-            router.swapExactTokensForETH(
-                amountIn,
-                amountOut,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
+        uint256[] memory amounts = router.swapExactTokensForETH(
+            amountIn,
+            amountOut,
+            path,
+            address(this),
+            block.timestamp + depositTXDeadlineSeconds
+        );
 
         emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
         return amounts[1];
@@ -409,15 +411,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             amountOut >= amountOutMin,
             "Output amount is lower then {amountOutMin}"
         );
-        uint256[] memory amounts =
-            router.swapETHForExactTokens{value: amountIn}(
-                amountOut,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
+        uint256[] memory amounts = router.swapETHForExactTokens{
+            value: amountIn
+        }(
+            amountOut,
+            path,
+            address(this),
+            block.timestamp + depositTXDeadlineSeconds
+        );
 
-        if (!isTokenBought[tokenTo]){ 
+        if (!isTokenBought[tokenTo]) {
             boughtTokenAddresses.push(tokenTo);
             isTokenBought[tokenTo] = true;
         }
@@ -431,22 +434,24 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(fundStatus != FundStatus.OPENED, "Fund should be started");
 
         for (uint256 i; i < boughtTokenAddresses.length; i++) {
-            address[] memory path =
-                _createPath(boughtTokenAddresses[i], router.WETH());
+            address[] memory path = _createPath(
+                boughtTokenAddresses[i],
+                router.WETH()
+            );
 
-            uint256 amountIn =
-                IERC20(boughtTokenAddresses[i]).balanceOf(address(this));
+            uint256 amountIn = IERC20(boughtTokenAddresses[i]).balanceOf(
+                address(this)
+            );
 
             IERC20(boughtTokenAddresses[i]).approve(address(router), amountIn);
 
-            uint256[] memory amounts =
-                router.swapExactTokensForETH(
-                    amountIn,
-                    0,
-                    path,
-                    address(this),
-                    block.timestamp + depositTXDeadlineSeconds
-                );
+            uint256[] memory amounts = router.swapExactTokensForETH(
+                amountIn,
+                0,
+                path,
+                address(this),
+                block.timestamp + depositTXDeadlineSeconds
+            );
 
             emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
 
@@ -461,11 +466,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             return;
         }
 
-        int256 percentage =
-            MathPercentage.calculateNumberFromNumberPercentage(
-                int256(info.depositAmount),
-                int256(baseBalance)
-            );
+        int256 percentage = MathPercentage.calculateNumberFromNumberPercentage(
+            int256(info.depositAmount),
+            int256(baseBalance)
+        );
 
         info.depositOwner.transfer(
             uint256(
@@ -496,7 +500,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     // validate hedge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
-        return _d == 1 || _d == 2 || _d == 3 || _d == 6;
+        return _d > 0;
+        //return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
     // Functions to receive Ether
@@ -504,7 +509,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     fallback() external payable {}
 
-    enum FundStatus {OPENED, ACTIVE, COMPLETED, CLOSED}
+    enum FundStatus {
+        OPENED,
+        ACTIVE,
+        COMPLETED,
+        CLOSED
+    }
 
     struct DepositInfo {
         address payable depositOwner;
