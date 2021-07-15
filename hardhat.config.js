@@ -8,10 +8,25 @@ let config = require("./secrets.json");
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: "0.6.6",
+  solidity: {
+    version: "0.6.6",
+    settings: {
+      optimizer: { 
+        enabled: true, 
+        runs: 200 
+      } 
+    }
+  },
+  paths: {
+    sources: "./contracts/Implementations",
+    tests: "./test",
+    cache: "./cache",
+    artifacts: "./artifacts"
+  },
   networks: {
     development: {
       url: "http://127.0.0.1:8545",
+      gas: 8272652
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${config.projectId}`,

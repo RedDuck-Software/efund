@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.6.6; // because of uni|cake swap
+pragma solidity 0.6.6; // because of uni|cake swap
+pragma experimental ABIEncoderV2;
 
-import "./SharedImports.sol";
+import "../SharedImports.sol";
 import "./HedgeFund.sol";
-import "./Interfaces/IFundFactory.sol";
-import "./Tokens/ERC20/eFund.sol";
+import "../Interfaces/IFundFactory.sol";
+import "../Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
     
@@ -17,7 +18,8 @@ contract FundFactory is IFundFactory {
         uint256 _fundDuration,
         uint256 _softCap,
         uint256 _hardCap,
-        address payable[] calldata allowedTokens
+        address payable[] calldata allowedTokens,
+        HedgeFundInfo calldata _info
     ) external payable override returns (address) {
         require(
             _hardCap > _softCap,
@@ -38,7 +40,8 @@ contract FundFactory is IFundFactory {
                 _hardCap,
                 _fundOwner,
                 _fundDuration,
-                allowedTokens
+                allowedTokens,
+                _info
             );
 
         _sendEth(payable(address(newFund)), msg.value);
