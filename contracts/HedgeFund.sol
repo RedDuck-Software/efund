@@ -2,11 +2,11 @@
 pragma solidity ^0.6.6;
 pragma experimental ABIEncoderV2;
 
-import "../SharedImports.sol";
-import "../Interfaces/IHedgeFund.sol";
+import "./SharedImports.sol";
+import "./Interfaces/IHedgeFund.sol";
 import "./FundFactory.sol";
-import "../Interfaces/IFundTrade.sol";
-import "../Libraries/MathPercentage.sol";
+import "./Interfaces/IFundTrade.sol";
+import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {

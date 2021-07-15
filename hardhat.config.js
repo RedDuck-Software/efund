@@ -13,12 +13,12 @@ module.exports = {
     settings: {
       optimizer: { 
         enabled: true, 
-        runs: 200 
+        runs: 1000 
       } 
     }
   },
   paths: {
-    sources: "./contracts/Implementations",
+    sources: "./contracts",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts"
