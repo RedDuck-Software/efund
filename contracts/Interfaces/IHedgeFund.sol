@@ -5,6 +5,7 @@ pragma experimental ABIEncoderV2;
 struct HedgeFundInfo {
     string name;
     string description;
+    string imageUrl;
 }
 
 interface IHedgeFund {
