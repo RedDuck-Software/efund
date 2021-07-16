@@ -76,7 +76,7 @@ contract EFundPlatform {
         require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
 
         require(
-            _hardCap < hardCap && _softCap < softCap,
+            _hardCap <= hardCap && _softCap >= softCap,
             "Soft cap must be > 0.1 ETH and hard cap < 100 ETH"
         );
 
