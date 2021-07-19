@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6; // because of uni|cake swap
 
 import "./SharedImports.sol";
@@ -7,39 +8,15 @@ import "./Interfaces/IFundFactory.sol";
 import "./Tokens/ERC20/eFund.sol";
 
 contract FundFactory is IFundFactory {
-    
-
-    function createFund(
-        address payable _swapRouterContract,
-        address payable _eFundToken,
-        address payable _fundOwner,
-        address payable _eFundPlatform,
-        uint256 _fundDuration,
-        uint256 _softCap,
-        uint256 _hardCap,
-        address payable[] calldata allowedTokens
-    ) external payable override returns (address) {
-        require(
-            _hardCap > _softCap,
-            "Hard cap must be bigger than soft cap"
-        );
+    function createFund(HedgeFundInfo calldata _hedgeFundInfo) external payable override returns (address) {
+        require(_hedgeFundInfo._hardCap > _hedgeFundInfo._softCap, "Hard cap must be bigger than soft cap");
 
         require(
-            msg.value >= _softCap && msg.value <= _hardCap,
-            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
+            msg.value >= _hedgeFundInfo._softCap && msg.value <= _hedgeFundInfo._hardCap,
+            "Invalid argument:Value sended must be >= softCap and <= hardCap"
         );
 
-        HedgeFund newFund =
-            new HedgeFund(
-                _swapRouterContract,
-                _eFundToken,
-                _eFundPlatform,
-                _softCap,
-                _hardCap,
-                _fundOwner,
-                _fundDuration,
-                allowedTokens
-            );
+        HedgeFund newFund = new HedgeFund(_hedgeFundInfo);
 
         _sendEth(payable(address(newFund)), msg.value);
 

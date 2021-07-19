@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6;
 
 import "./SharedImports.sol";
 import "./FundFactory.sol";
 import "./HedgeFund.sol";
+import "./Types/HedgeFundInfo.sol";
 
 contract EFundPlatform {
     using OZSafeMath for uint256;
@@ -26,7 +28,6 @@ contract EFundPlatform {
 
     mapping(address => bool) public isExcludedFromReward;
 
-
     HedgeFund[] public funds;
 
     uint256 public constant rewardCycleBlock = 7 days;
@@ -43,6 +44,8 @@ contract EFundPlatform {
 
     int256 public constant goldPeriodRewardPercentage = 30; // 30%
     
+    uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
+    
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
@@ -52,7 +55,7 @@ contract EFundPlatform {
         _;
     }
 
-    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap ) public {
+    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap) public {
         require(_fundFactory != address(0), "Invalid fundFactory address provided");
         require(_efundToken != address(0), "Invalid eFund token address provided");
         require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
@@ -69,6 +72,8 @@ contract EFundPlatform {
         uint256 _fundDurationInMonths,
         uint256 _softCap, 
         uint256 _hardCap, 
+        uint256 _minimalDepositAmount,
+        uint256 _minTimeUntilFundStart,
         address payable[] memory _allowedTokens
     ) public payable returns (address) {
         require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
@@ -79,6 +84,12 @@ contract EFundPlatform {
         );
 
         require(
+            _minimalDepositAmount > 0 &&
+            _minimalDepositAmount <= _hardCap.div(maximumMinimalDepositAmountFromHardCapPercentage),
+            "Invalid minimalDepositAmount"
+        );
+
+        require(
             msg.value >= _softCap && msg.value <= _hardCap,
             "value is outside of caps"
         );
@@ -86,14 +97,18 @@ contract EFundPlatform {
 
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(
-                _swapRouter,
-                payable(address(eFund)),
-                msg.sender,
-                address(this),
-                _fundDurationInMonths,
-                _softCap,
-                _hardCap,
-                _allowedTokens
+                HedgeFundInfo(
+                    _swapRouter,
+                    payable(address(eFund)),
+                    address(this),
+                    _softCap,
+                    _hardCap,
+                    _minimalDepositAmount,
+                    _minTimeUntilFundStart,
+                    msg.sender,
+                    _fundDurationInMonths,
+                    _allowedTokens
+                )
             );
 
         funds.push(HedgeFund(payable(newFundAddress)));

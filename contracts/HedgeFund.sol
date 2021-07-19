@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6;
 
 import "./SharedImports.sol";
@@ -7,12 +8,15 @@ import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
 import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
+import "./Types/HedgeFundInfo.sol";
 
 contract HedgeFund is IHedgeFund, IFundTrade {
+    using OZSafeMath for uint256;
+
     event NewDeposit(
         address payable indexed _depositOwner,
         uint256 indexed _id,
-        uint256 _depositAmount
+        uint256 indexed _depositAmount
     );
 
     event FundStatusChanged(uint256 _newStatus);
@@ -23,10 +27,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     );
 
     event TokensSwap(
-        address _tokenFrom,
-        address _tokenTo,
+        address indexed _tokenFrom,
+        address indexed _tokenTo,
         uint256 _amountFrom,
-        uint256 _amountTo
+        uint256 indexed _amountTo
     );
 
     event AllDepositsWithdrawed();
@@ -38,6 +42,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     IERC20 public immutable eFund;
 
     EFundPlatform public immutable eFundPlatform;
+    
+    uint256 public immutable minimalDepositAmount;
+
+    uint256 public immutable fundCreatedAt;
+
+    uint256 public immutable fundCanBeStartedMinimumAt;
 
     uint256 public immutable softCap;
 
@@ -105,32 +115,26 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _;
     }
 
-    constructor(
-        address payable _swapRouterContract,
-        address payable _eFundTokenContract,
-        address payable _eFundPlatform,
-        uint256 _softCap,
-        uint256 _hardCap,
-        address payable _managerAddress,
-        uint256 _duration,
-        address payable[] memory _allowedTokenAddresses
-    ) public {
-        require(_validateDuration(_duration), "Invalid duration");
+    constructor(HedgeFundInfo memory _hedgeFundInfo) public {
+        require(_validateDuration(_hedgeFundInfo._duration), "Invalid duration");
 
-        router = UniswapV2Router02(_swapRouterContract);
-        eFund = IERC20(_eFundTokenContract);
-        eFundPlatform = EFundPlatform(_eFundPlatform);
+        router = UniswapV2Router02(_hedgeFundInfo._swapRouterContract);
+        eFund = IERC20(_hedgeFundInfo._eFundTokenContract);
+        eFundPlatform = EFundPlatform(_hedgeFundInfo._eFundPlatform);
 
-        fundManager = _managerAddress;
+        fundManager = _hedgeFundInfo._managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDuration = _duration;
-        softCap = _softCap;
-        hardCap = _hardCap;
-        allowedTokenAddresses = _allowedTokenAddresses;
+        fundDuration = _hedgeFundInfo._duration;
+        softCap = _hedgeFundInfo._softCap;
+        hardCap = _hedgeFundInfo._hardCap;
+        allowedTokenAddresses = _hedgeFundInfo._allowedTokenAddresses;
         isDepositsWithdrawed = false;
+        fundCreatedAt = block.timestamp;
+        fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
+        minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount; 
 
-        for (uint256 i; i < _allowedTokenAddresses.length; i++)
-            isTokenAllowed[_allowedTokenAddresses[i]] = true;
+        for (uint256 i; i < _hedgeFundInfo._allowedTokenAddresses.length; i++)
+            isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
     }
 
     function getCurrentBalanceInWei() external view override returns (uint256) {
