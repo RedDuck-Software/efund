@@ -55,7 +55,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     address payable public immutable fundManager;
 
-    uint256 public immutable fundDuration;
+    uint256 public immutable fundDurationMonths;
 
     uint256 public fundStartTimestamp;
 
@@ -80,6 +80,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
+
+    uint256 private constant monthDuration = 30 days;
+
 
     UniswapV2Router02 public immutable router;
 
@@ -124,7 +127,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         fundManager = _hedgeFundInfo._managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDuration = _hedgeFundInfo._duration;
+        fundDurationMonths = _hedgeFundInfo._duration;
         softCap = _hedgeFundInfo._softCap;
         hardCap = _hedgeFundInfo._hardCap;
         allowedTokenAddresses = _hedgeFundInfo._allowedTokenAddresses;
@@ -137,18 +140,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
     }
 
-    function getCurrentBalanceInWei() external view override returns (uint256) {
-        return address(this).balance;
-    }
-
     /// @notice get end time of the fund
     function getEndTime() external view override returns (uint256) {
-        return fundStartTimestamp + (fundDuration);
-    }
-
-    /// @notice test function, using to determine is there connection with uni|cake swap or it`s not
-    function getWETH() external view override returns (address) {
-        return router.WETH();
+        return _getEndTime();
     }
 
     function getBoughtTokensAddresses()
@@ -173,8 +167,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyInOpenedState
         onlyForFundManager
     {
-        fundStatus = FundStatus.ACTIVE;
-        baseBalance = this.getCurrentBalanceInWei();
+        _updateFundStatus(FundStatus.ACTIVE);
+        baseBalance = _getCurrentBalanceInWei();
         fundStartTimestamp = block.timestamp;
 
         emit FundStatusChanged(uint256(fundStatus));
@@ -186,7 +180,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyInComplitedState
         onlyForFundManager
     {
-        fundStatus = FundStatus.CLOSED;
+        _updateFundStatus(FundStatus.CLOSED);
         eFundPlatform.closeFund();
 
         emit FundStatusChanged(uint256(fundStatus));
@@ -194,14 +188,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function setFundStatusCompleted() external override onlyInActiveState {
         require(
-            block.timestamp > this.getEndTime(),
+            block.timestamp > _getEndTime(),
             "Fund is didn`t finish yet"
         );
-        // commented for testing
 
-        fundStatus = FundStatus.COMPLETED;
+        _updateFundStatus(FundStatus.COMPLETED);
 
-        endBalance = this.getCurrentBalanceInWei();
+        endBalance = _getCurrentBalanceInWei();
 
         uint256 fundFee = uint256(
             MathPercentage.calculateNumberFromPercentage(
@@ -221,13 +214,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
     function makeDeposit() external payable override onlyInOpenedState {
         require(
-            msg.value >= softCap,
+            msg.value >= minimalDepositAmount,
             "Transaction value is less then minimum deposit amout"
         );
 
         require(
-            this.getCurrentBalanceInWei() + msg.value <= hardCap,
-            "Max cap in 100 ETH is overflowed. Try to send less WEI"
+            _getCurrentBalanceInWei().add(msg.value) <= hardCap,
+            "Max cap is overflowed. Try to send lower value"
         );
 
         DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
@@ -236,21 +229,27 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @notice withdraw your deposits before trading period is started
-    function withdrawBeforeFundStarted() external override onlyInOpenedState {
+    function withdrawBeforeFundStarted() external override {
+        require(fundCreatedAt.add(fundCanBeStartedMinimumAt) < block.timestamp, 
+                "Cannot withdraw fund now"
+        );
+
         bool haveDeposits = false;
 
         for (uint256 i = 0; i < deposits.length; i++) {
             if (deposits[i].depositOwner == payable(msg.sender)) {
-                haveDeposits = true;
-                _withdraw(deposits[i]);
-                emit DepositWithdrawedBeforeActiveState(msg.sender, i);
+                DepositInfo memory depositsCopy = deposits[i];
                 delete deposits[i];
+                haveDeposits = true;
+                _withdraw(depositsCopy);
+                emit DepositWithdrawedBeforeActiveState(msg.sender, i);
             }
         }
+
         require(haveDeposits, "You have not any deposits in hedge fund");
     }
 
-    function withdraw() external override {
+    function withdrawDeposits() external override {
         require(
             fundStatus == FundStatus.COMPLETED ||
                 fundStatus == FundStatus.CLOSED,
@@ -259,12 +258,13 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         require(!isDepositsWithdrawed, "All deposits are already withdrawed");
 
-        for (uint256 i; i < deposits.length; i++) {
-            _withdraw(deposits[i]);
-            delete deposits[i];
-        }
-
         isDepositsWithdrawed = true;
+
+        for (uint256 i; i < deposits.length; i++) {
+            DepositInfo memory depositsCopy = deposits[i];
+            delete deposits[i];
+            _withdraw(depositsCopy);
+        }
 
         emit AllDepositsWithdrawed();
     }
@@ -307,7 +307,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         payable(address(eFundPlatform)).transfer(platformFeeAmount);
 
         // sending the rest to the fund manager
-        fundManager.transfer(this.getCurrentBalanceInWei());
+        fundManager.transfer(_getCurrentBalanceInWei());
     }
 
     /* trading section */
@@ -434,38 +434,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return amounts[1];
     }
 
-    function swapAllTokensIntoETH() public onlyForFundManager {
-        require(fundStatus != FundStatus.OPENED, "Fund should be started");
-
-        for (uint256 i; i < boughtTokenAddresses.length; i++) {
-            address[] memory path = _createPath(
-                boughtTokenAddresses[i],
-                router.WETH()
-            );
-
-            uint256 amountIn = IERC20(boughtTokenAddresses[i]).balanceOf(
-                address(this)
-            );
-
-            IERC20(boughtTokenAddresses[i]).approve(address(router), amountIn);
-
-            uint256[] memory amounts = router.swapExactTokensForETH(
-                amountIn,
-                0,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
-
-            emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-
-            isTokenBought[boughtTokenAddresses[i]] = false;
-            delete boughtTokenAddresses[i];
-        }
-    }
-
     function _withdraw(DepositInfo storage info) private {
-        if (baseBalance == 0) {
+        if (fundStatus == FundStatus.OPENED) {
             info.depositOwner.transfer(info.depositAmount); // if baseBalance 0 - it`s a withdrawBeforeFundStated call
             return;
         }
@@ -488,6 +458,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
     }
 
+    function _getCurrentBalanceInWei() private view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function _updateFundStatus(FundStatus newFundStatus) private { 
+        fundStatus = newFundStatus;
+    }
+
+    function _getEndTime() private  returns (uint256){ 
+        return fundStartTimestamp + (fundDurationMonths.mul(monthDuration));
+    }
+
     /// @dev create path array for uni|cake swap
     function _createPath(address tokenFrom, address tokenTo)
         private
@@ -505,7 +487,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     // validate hedge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
         return _d > 0;
-        //return _d == 1 || _d == 2 || _d == 3 || _d == 6;
+        // return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
     // Functions to receive Ether

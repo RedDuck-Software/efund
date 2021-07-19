@@ -6,7 +6,7 @@ interface IHedgeFund {
 
     function makeDeposit() external payable;
 
-    function withdraw() external;
+    function withdrawDeposits() external;
 
     function withdrawBeforeFundStarted() external;
 
