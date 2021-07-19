@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.6; // because of uni|cake swap
+pragma solidity ^0.6.6; // because of uni|cake swap
 pragma experimental ABIEncoderV2;
 
 import "./SharedImports.sol";
