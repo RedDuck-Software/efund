@@ -201,7 +201,6 @@ contract EFundPlatform {
             _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityMonths);
     }
 
-
     function _calculateHolderReward(
         uint256 currentBalance,
         uint256 currentBNBPool,
@@ -235,8 +234,7 @@ contract EFundPlatform {
         uint256 successRate =
             uint256(MathPercentage.calculateNumberFromNumberPercentage(int256(successFunds), int256(totalFundsCompleted)));
 
-         // Formula: success rate % + 0.1* size of fund + 0.1%
-
+        // Formula: success rate % + 0.1* size of fund + 0.1%
         return 
             successRate
             .add(totalFundsSizes.div(10))
@@ -253,7 +251,7 @@ contract EFundPlatform {
         return goldPeriodRewardPercentage;
     }
 
-        // Functions to receive Ether
+    // Functions to receive Ether
     receive() external payable {}
 
     fallback() external payable {}

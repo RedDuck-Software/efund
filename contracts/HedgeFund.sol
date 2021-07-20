@@ -131,7 +131,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     constructor(HedgeFundInfo memory _hedgeFundInfo) public {
         require(_validateDuration(_hedgeFundInfo._duration), "Invalid duration");
-
+        
         router = UniswapV2Router02(_hedgeFundInfo._swapRouterContract);
         eFund = IERC20(_hedgeFundInfo._eFundTokenContract);
         eFundPlatform = EFundPlatform(_hedgeFundInfo._eFundPlatform);
