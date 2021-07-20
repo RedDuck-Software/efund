@@ -92,8 +92,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     int256 public constant managerProfitPercentage = 90; // 90%
 
-    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
-
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     uint256 private constant monthDuration = 30 days;
@@ -308,7 +306,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        noProfitFundFee,
+                         eFundPlatform.noProfitFundFee(),
                         100
                     ),
                     int256(address(this).balance)

@@ -6,6 +6,7 @@ import "./SharedImports.sol";
 import "./FundFactory.sol";
 import "./HedgeFund.sol";
 import "./Types/HedgeFundInfo.sol";
+import "hardhat/console.sol";
 
 contract EFundPlatform {
     using OZSafeMath for uint256;
@@ -46,6 +47,8 @@ contract EFundPlatform {
 
     int256 public constant goldPeriodRewardPercentage = 30; // 30%
     
+    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+
     uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
     
     uint256 public immutable softCap;
@@ -126,14 +129,19 @@ contract EFundPlatform {
 
         require(_topAmount <= funds.length && _topAmount > 0,"Invalid _topAmount value");
 
-        HedgeFund[] memory fundsCopy = funds; 
+        HedgeFund[] memory fundsCopy = new HedgeFund[](funds.length); 
+
+        for (uint256 i = 0; i < funds.length; i++)
+            fundsCopy[i] = funds[i]; 
 
         HedgeFund[] memory relevantFunds = new HedgeFund[](_topAmount);
+
+        console.log("fund length: ", fundsCopy.length);
 
         for (uint i = 0; i < fundsCopy.length; i++) {
             for (uint j = 0; j < fundsCopy.length - i - 1; j++) {
                 if (address(fundsCopy[j]).balance > address(fundsCopy[j + 1]).balance 
-                    && managerFundActivity[fundsCopy[j].fundManager()].reputation 
+                    || managerFundActivity[fundsCopy[j].fundManager()].reputation 
                         > managerFundActivity[fundsCopy[j + 1].fundManager()].reputation) {
                             HedgeFund temp = fundsCopy[j + 1];
                             fundsCopy[j + 1] = fundsCopy[j];
@@ -141,11 +149,15 @@ contract EFundPlatform {
                 }
             }
         }
-        
-        uint j;
 
-        for (uint256 i = fundsCopy.length - 1; i > fundsCopy.length - _topAmount; i++) 
-            relevantFunds[j++] = fundsCopy[i];
+        console.log("sorting done");
+
+        uint j = funds.length - 1;
+
+        for (uint256 i = 0; i < _topAmount; i++) {
+            relevantFunds[i] = fundsCopy[j];
+            j--;
+        }
 
         return relevantFunds;
     }
