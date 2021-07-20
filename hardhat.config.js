@@ -9,6 +9,12 @@ let config = require("./secrets.json");
  */
 module.exports = {
   solidity: "0.6.6",
+  settings: {
+    optimizer: {
+      enabled: true,
+      runs: 1,
+    },
+  },
   networks: {
     development: {
       url: "http://127.0.0.1:8545",

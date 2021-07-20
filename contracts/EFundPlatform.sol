@@ -16,6 +16,8 @@ contract EFundPlatform {
         uint256 indexed nextAvailableClaimDate
     );
 
+    HedgeFund[] public funds;
+
     FundFactory public immutable fundFactory;
 
     IERC20 public immutable eFund;
@@ -24,11 +26,11 @@ contract EFundPlatform {
 
     mapping(address => FundManagerActivityInfo) public managerFundActivity;
 
+    mapping(address => HedgeFund[]) public managerFunds;
+
     mapping(address => uint256) public nextAvailableRewardClaimDate;
 
     mapping(address => bool) public isExcludedFromReward;
-
-    HedgeFund[] public funds;
 
     uint256 public constant rewardCycleBlock = 7 days;
 
@@ -112,8 +114,16 @@ contract EFundPlatform {
             );
 
         funds.push(HedgeFund(payable(newFundAddress)));
+        managerFunds[msg.sender].push(HedgeFund(payable(newFundAddress)));
         isFund[newFundAddress] = true;
-        managerFundActivity[msg.sender] = FundManagerActivityInfo(0, true);
+
+        if(!managerFundActivity[msg.sender].isValue)
+            managerFundActivity[msg.sender] = FundManagerActivityInfo(0,0, true);
+    }
+
+    function getManagerFunds(address manager) public view returns (HedgeFund[] memory) {
+        require(managerFundActivity[manager].isValue, "Manager does not exist");
+        return managerFunds[manager];
     }
 
     function getAllFunds() public view returns (HedgeFund[] memory) {
@@ -126,10 +136,13 @@ contract EFundPlatform {
 
     function closeFund() public onlyForFundContract {
         HedgeFund fund = HedgeFund(msg.sender); // sender is a contract 
-        require(fund.getEndTime() <= block.timestamp, "Fund is not completed");
+        require(fund.getEndTime() < block.timestamp && fund.isDepositsWithdrawed(), "Fund is not completed");
 
-        uint256 _curActivity = managerFundActivity[fund.fundManager()].fundActivityMonths;
-        managerFundActivity[fund.fundManager()].fundActivityMonths = _curActivity.add(fund.fundDurationMonths());
+        address managerAddresss = fund.fundManager();
+
+        uint256 _curActivity = managerFundActivity[managerAddresss].fundActivityMonths;
+        managerFundActivity[managerAddresss].fundActivityMonths = _curActivity.add(fund.fundDurationMonths());
+        managerFundActivity[managerAddresss].reputation = _calculateManagerReputation(managerAddresss);
     }
 
     function claimHolderReward() public {
@@ -202,6 +215,33 @@ contract EFundPlatform {
         isExcludedFromReward[_address] = true;
     }
 
+    function _calculateManagerReputation(address manager) private view returns (uint256){ 
+        require(managerFundActivity[manager].isValue, "Manager doest not exist");
+
+        HedgeFund[] memory mFunds = managerFunds[manager];
+
+        (uint256 totalFundsCompleted, 
+            uint256 successFunds, 
+            uint256 totalFundsSizes) = (0,0,0);
+
+        for (uint256 i = 0; i < mFunds.length; i++) {
+            if(mFunds[i].endBalance() != 0) { 
+                totalFundsCompleted++;
+                successFunds += mFunds[i].endBalance() > mFunds[i].baseBalance() ? 1 : 0;
+                totalFundsSizes += mFunds[i].endBalance();
+            }
+        }
+
+        uint256 successRate =
+            uint256(MathPercentage.calculateNumberFromNumberPercentage(int256(successFunds), int256(totalFundsCompleted)));
+
+         // Formula: success rate % + 0.1* size of fund + 0.1%
+
+        return 
+            successRate
+            .add(totalFundsSizes.div(10))
+            .add(successFunds.div(1000));
+    }
 
     function _calculateManagerRewardPercentage(uint256 _duration)
         private
@@ -220,6 +260,7 @@ contract EFundPlatform {
 
     struct FundManagerActivityInfo {
         uint256 fundActivityMonths;
+        uint256 reputation;
         bool isValue;
     }
 }
