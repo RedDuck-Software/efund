@@ -8,7 +8,7 @@ import "./Interfaces/IFundFactory.sol";
 import "./Tokens/ERC20/eFund.sol";
 
 /* 
-    ERR MSG TRANSCRIPTIONS
+    ERR MSG ABBREVIATION
 
 CE0 : Hard cap must be bigger than soft cap
 CE1 : Invalid argument:Value sended must be >= softCap and <= hardCap

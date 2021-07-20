@@ -16,7 +16,9 @@ contract EFundPlatform {
         uint256 indexed nextAvailableClaimDate
     );
 
-    HedgeFund[] public funds;
+    HedgeFund[] private funds;
+
+    mapping(address => HedgeFund[]) private managerFunds;
 
     FundFactory public immutable fundFactory;
 
@@ -25,8 +27,6 @@ contract EFundPlatform {
     mapping(address => bool) public isFund;
 
     mapping(address => FundManagerActivityInfo) public managerFundActivity;
-
-    mapping(address => HedgeFund[]) public managerFunds;
 
     mapping(address => uint256) public nextAvailableRewardClaimDate;
 
@@ -56,7 +56,7 @@ contract EFundPlatform {
         require(isFund[msg.sender], "Caller address is not a fund");
         _;
     }
-
+    
     constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap) public {
         require(_fundFactory != address(0), "Invalid fundFactory address provided");
         require(_efundToken != address(0), "Invalid eFund token address provided");
@@ -119,6 +119,35 @@ contract EFundPlatform {
 
         if(!managerFundActivity[msg.sender].isValue)
             managerFundActivity[msg.sender] = FundManagerActivityInfo(0,0, true);
+    }
+
+    function getTopRelevantFunds(uint256 _topAmount) public view returns (HedgeFund[] memory) {
+        if(funds.length == 0) return funds;
+
+        require(_topAmount <= funds.length && _topAmount > 0,"Invalid _topAmount value");
+
+        HedgeFund[] memory fundsCopy = funds; 
+
+        HedgeFund[] memory relevantFunds = new HedgeFund[](_topAmount);
+
+        for (uint i = 0; i < fundsCopy.length; i++) {
+            for (uint j = 0; j < fundsCopy.length - i - 1; j++) {
+                if (address(fundsCopy[j]).balance > address(fundsCopy[j + 1]).balance 
+                    && managerFundActivity[fundsCopy[j].fundManager()].reputation 
+                        > managerFundActivity[fundsCopy[j + 1].fundManager()].reputation) {
+                            HedgeFund temp = fundsCopy[j + 1];
+                            fundsCopy[j + 1] = fundsCopy[j];
+                            fundsCopy[j] = temp;
+                }
+            }
+        }
+        
+        uint j;
+
+        for (uint256 i = fundsCopy.length - 1; i > fundsCopy.length - _topAmount; i++) 
+            relevantFunds[j++] = fundsCopy[i];
+
+        return relevantFunds;
     }
 
     function getManagerFunds(address manager) public view returns (HedgeFund[] memory) {

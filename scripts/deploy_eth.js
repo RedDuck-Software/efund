@@ -1,5 +1,8 @@
 const { ethers } = require("hardhat");
 
+const { BigNumber, utils } = ethers;
+
+
 async function deployERC20() { 
     const eFundERC20 = await ethers.getContractFactory("eFundERC20");
     return await eFundERC20.deploy();

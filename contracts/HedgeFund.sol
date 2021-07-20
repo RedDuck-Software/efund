@@ -15,6 +15,7 @@ struct SwapInfo {
     address to;
     uint256 amountFrom;
     uint256 amountTo;
+    uint256 timestamp;
 }
 
 contract HedgeFund is IHedgeFund, IFundTrade {
@@ -42,13 +43,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     event AllDepositsWithdrawed();
 
-    DepositInfo[] public deposits;
+    DepositInfo[] private deposits;
 
-    SwapInfo[] public swapsInfo;
+    SwapInfo[] private swapsInfo;
     
+    address payable[] private boughtTokenAddresses;
+
+    address payable[] private allowedTokenAddresses;
+
+
     FundStatus public fundStatus;
 
-    IERC20 public immutable eFund;
+    IERC20 public immutable eFundToken;
 
     EFundPlatform public immutable eFundPlatform;
     
@@ -77,10 +83,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     uint256 public endBalance;
 
     uint256 public lockedManagerProfit;
-
-    address payable[] public boughtTokenAddresses;
-
-    address payable[] public allowedTokenAddresses;
     
     mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
@@ -133,7 +135,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         require(_validateDuration(_hedgeFundInfo._duration), "Invalid duration");
         
         router = UniswapV2Router02(_hedgeFundInfo._swapRouterContract);
-        eFund = IERC20(_hedgeFundInfo._eFundTokenContract);
+        eFundToken = IERC20(_hedgeFundInfo._eFundTokenContract);
         eFundPlatform = EFundPlatform(_hedgeFundInfo._eFundPlatform);
 
         fundManager = _hedgeFundInfo._managerAddress;
@@ -209,10 +211,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     function setFundStatusCompleted() external override onlyInActiveState {
-        require(
-            block.timestamp > _getEndTime(),
-            "Fund is didn`t finish yet"
-        );
+        // require(
+        //     block.timestamp > _getEndTime(),
+        //     "Fund is didn`t finish yet"
+        // ); // commented for testing
 
         _updateFundStatus(FundStatus.COMPLETED);
 
@@ -499,7 +501,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 _tokenFrom,
                 _tokenTo,
                 _amountFrom,
-                _amountTo
+                _amountTo,
+                block.timestamp
             )
         );
     }
