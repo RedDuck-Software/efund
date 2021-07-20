@@ -12,7 +12,7 @@ async function deployContractFactory() {
 
 async function deployEFundPlatform(factory,erc20) { 
     const Platform = await ethers.getContractFactory("EFundPlatform");
-    return await Platform.deploy(factory.address,erc20.address);
+    return await Platform.deploy(factory.address,erc20.address, 100000000000000000n, 1000000000000000000000n);
 }
 
 

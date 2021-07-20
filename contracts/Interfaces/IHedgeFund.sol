@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
+pragma experimental ABIEncoderV2;
+
+struct HedgeFundInfo {
+    string name;
+    string description;
+    string imageUrl;
+}
 
 interface IHedgeFund {
     function getWETH() external view returns (address);

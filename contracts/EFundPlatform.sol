@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
+pragma experimental ABIEncoderV2;
 
 import "./SharedImports.sol";
 import "./FundFactory.sol";
@@ -69,12 +70,13 @@ contract EFundPlatform {
         uint256 _fundDurationInMonths,
         uint256 _softCap, 
         uint256 _hardCap, 
-        address payable[] memory _allowedTokens
+        address payable[] memory _allowedTokens,
+        HedgeFundInfo memory _info
     ) public payable returns (address) {
         require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
 
         require(
-            _hardCap < hardCap && _softCap < softCap,
+            _hardCap <= hardCap && _softCap >= softCap,
             "Soft cap must be > 0.1 ETH and hard cap < 100 ETH"
         );
 
@@ -93,7 +95,8 @@ contract EFundPlatform {
                 _fundDurationInMonths,
                 _softCap,
                 _hardCap,
-                _allowedTokens
+                _allowedTokens,
+                _info
             );
 
         funds.push(HedgeFund(payable(newFundAddress)));

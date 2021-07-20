@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.6.6;
+pragma experimental ABIEncoderV2;
 
 import "./SharedImports.sol";
 import "./Interfaces/IHedgeFund.sol";
@@ -73,6 +74,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     UniswapV2Router02 public immutable router;
 
+    HedgeFundInfo public hedgeFundInfo;
+
     modifier onlyForFundManager() {
         require(
             msg.sender == fundManager || msg.sender == address(this),
@@ -113,7 +116,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 _hardCap,
         address payable _managerAddress,
         uint256 _duration,
-        address payable[] memory _allowedTokenAddresses
+        address payable[] memory _allowedTokenAddresses,
+        HedgeFundInfo memory _info
     ) public {
         require(_validateDuration(_duration), "Invalid duration");
 
@@ -128,6 +132,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         hardCap = _hardCap;
         allowedTokenAddresses = _allowedTokenAddresses;
         isDepositsWithdrawed = false;
+        
+        hedgeFundInfo = _info;
 
         for (uint256 i; i < _allowedTokenAddresses.length; i++)
             isTokenAllowed[_allowedTokenAddresses[i]] = true;
