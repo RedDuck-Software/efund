@@ -147,6 +147,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
         minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount; 
         managerCollateral = _getCurrentBalanceInWei();
+        
+        // todo : store manager fee
 
         for (uint256 i; i < _hedgeFundInfo._allowedTokenAddresses.length; i++)
             isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
@@ -317,7 +319,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        managerProfitPercentage,
+                        eFundPlatform.defaultFundFee(),
                         100
                     ),
                     int256(address(this).balance)
@@ -326,10 +328,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         }
 
         // send fee to eFundPlatform
-        payable(address(eFundPlatform)).transfer(platformFeeAmount);
-
+        if(_getCurrentBalanceInWei() > 0)
+            payable(address(eFundPlatform)).transfer(platformFeeAmount);
+        
         // sending the rest to the fund manager
-        fundManager.transfer(_getCurrentBalanceInWei());
+        if(_getCurrentBalanceInWei() > 0)
+            fundManager.transfer(_getCurrentBalanceInWei());
     }
 
     /* trading section */

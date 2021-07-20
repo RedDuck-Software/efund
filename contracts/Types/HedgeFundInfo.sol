@@ -8,6 +8,7 @@ struct HedgeFundInfo {
     address payable _eFundPlatform;
     uint256 _softCap;
     uint256 _hardCap;
+    uint256 managerFee;
     uint256 minimalDepostitAmount;
     uint256 minTimeUntilFundStart;
     address payable _managerAddress;

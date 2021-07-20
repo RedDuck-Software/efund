@@ -49,8 +49,14 @@ contract EFundPlatform {
     
     int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
+    int256 public constant defaultFundFee = 10; // 10% - takes only when fund manager made some profit
+
     uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
     
+    uint256 public constant minimumManagerFee = 1; // 1%
+
+    uint256 public constant maximumManagerFee = 10; // 10% 
+
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
@@ -77,6 +83,7 @@ contract EFundPlatform {
         uint256 _fundDurationInMonths,
         uint256 _softCap, 
         uint256 _hardCap, 
+        uint256 _managerFee,
         uint256 _minimalDepositAmount,
         uint256 _minTimeUntilFundStart,
         address payable[] memory _allowedTokens
@@ -85,7 +92,7 @@ contract EFundPlatform {
 
         require(
             _hardCap <= hardCap && _softCap >= softCap,
-            "Soft cap must be > 0.1 ETH and hard cap < 100 ETH"
+            "HardCap values is outside the platform default caps"
         );
 
         require(
@@ -99,6 +106,9 @@ contract EFundPlatform {
             "value is outside of caps"
         );
 
+        require(_managerFee >= minimumManagerFee && _managerFee <= maximumManagerFee, 
+        "Manager fee value is outside the manager fee caps");
+
 
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(
@@ -108,6 +118,7 @@ contract EFundPlatform {
                     address(this),
                     _softCap,
                     _hardCap,
+                    _managerFee,
                     _minimalDepositAmount,
                     _minTimeUntilFundStart,
                     msg.sender,
