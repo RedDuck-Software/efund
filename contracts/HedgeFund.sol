@@ -151,6 +151,14 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
     }
 
+    function getAllDeposits() public view returns (DepositInfo[] memory){
+        return deposits;
+    }
+
+    function getAllSwaps() public view returns (SwapInfo[] memory){
+        return swapsInfo;
+    }
+
     /// @notice get end time of the fund
     function getEndTime() external view override returns (uint256) {
         return _getEndTime();
