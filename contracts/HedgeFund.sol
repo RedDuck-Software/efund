@@ -64,6 +64,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public immutable hardCap;
 
+    uint256 public immutable managerCollateral;
+
     address payable public immutable fundManager;
 
     uint256 public immutable fundDurationMonths;
@@ -79,8 +81,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     address payable[] public boughtTokenAddresses;
 
     address payable[] public allowedTokenAddresses;
-
-
     
     mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
@@ -146,6 +146,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundCreatedAt = block.timestamp;
         fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
         minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount; 
+        managerCollateral = _getCurrentBalanceInWei();
 
         for (uint256 i; i < _hedgeFundInfo._allowedTokenAddresses.length; i++)
             isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
