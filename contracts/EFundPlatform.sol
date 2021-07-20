@@ -11,9 +11,9 @@ contract EFundPlatform {
     using OZSafeMath for uint256;
 
     event ClaimHolderRewardSuccessfully(
-        address recipient,
-        uint256 ethReceived,
-        uint256 nextAvailableClaimDate
+        address indexed recipient,
+        uint256 indexed ethReceived,
+        uint256 indexed nextAvailableClaimDate
     );
 
     FundFactory public immutable fundFactory;
@@ -128,8 +128,8 @@ contract EFundPlatform {
         HedgeFund fund = HedgeFund(msg.sender); // sender is a contract 
         require(fund.getEndTime() <= block.timestamp, "Fund is not completed");
 
-        uint256 _curActivity = managerFundActivity[fund.fundManager()].fundActivityDuration;
-        managerFundActivity[fund.fundManager()].fundActivityDuration = _curActivity.add(fund.fundDuration());
+        uint256 _curActivity = managerFundActivity[fund.fundManager()].fundActivityMonths;
+        managerFundActivity[fund.fundManager()].fundActivityMonths = _curActivity.add(fund.fundDurationMonths());
     }
 
     function claimHolderReward() public {
@@ -185,7 +185,7 @@ contract EFundPlatform {
         require(managerFundActivity[_address].isValue, "Address is not a fund manager");
 
         return
-            _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityDuration);
+            _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityMonths);
     }
 
 
@@ -219,7 +219,7 @@ contract EFundPlatform {
     fallback() external payable {}
 
     struct FundManagerActivityInfo {
-        uint256 fundActivityDuration;
+        uint256 fundActivityMonths;
         bool isValue;
     }
 }

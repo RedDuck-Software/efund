@@ -10,6 +10,13 @@ import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
 import "./Types/HedgeFundInfo.sol";
 
+struct SwapInfo { 
+    address from;
+    address to;
+    uint256 amountFrom;
+    uint256 amountTo;
+}
+
 contract HedgeFund is IHedgeFund, IFundTrade {
     using OZSafeMath for uint256;
 
@@ -37,12 +44,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     DepositInfo[] public deposits;
 
+    SwapInfo[] public swapsInfo;
+    
     FundStatus public fundStatus;
 
     IERC20 public immutable eFund;
 
     EFundPlatform public immutable eFundPlatform;
     
+    UniswapV2Router02 public immutable router;
+
     uint256 public immutable minimalDepositAmount;
 
     uint256 public immutable fundCreatedAt;
@@ -69,6 +80,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     address payable[] public allowedTokenAddresses;
 
+
+    
     mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
     mapping(address => bool) public isTokenAllowed;
@@ -83,8 +96,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 private constant monthDuration = 30 days;
 
-
-    UniswapV2Router02 public immutable router;
 
     modifier onlyForFundManager() {
         require(
@@ -167,6 +178,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyInOpenedState
         onlyForFundManager
     {
+        require(fundCanBeStartedMinimumAt < block.timestamp, "Fund cannot be started at that moment");
+
         _updateFundStatus(FundStatus.ACTIVE);
         baseBalance = _getCurrentBalanceInWei();
         fundStartTimestamp = block.timestamp;
@@ -359,7 +372,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenBought[tokenTo] = true;
         }
 
-        emit TokensSwap(tokenFrom, tokenTo, amountIn, amounts[path.length - 1]);
+        _onTokenSwapAction(tokenFrom, tokenTo, amountIn, amounts[path.length - 1]);
         return amounts[1];
     }
 
@@ -390,7 +403,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             block.timestamp + depositTXDeadlineSeconds
         );
 
-        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
+        _onTokenSwapAction(path[0], path[1], amountIn, amounts[1]);
         return amounts[1];
     }
 
@@ -428,13 +441,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             boughtTokenAddresses.push(tokenTo);
             isTokenBought[tokenTo] = true;
         }
-
-        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
+        _onTokenSwapAction(path[0], path[1], amountIn, amounts[1]);
 
         return amounts[1];
     }
 
-    function _withdraw(DepositInfo storage info) private {
+    function _withdraw(DepositInfo memory info) private {
         if (fundStatus == FundStatus.OPENED) {
             info.depositOwner.transfer(info.depositAmount); // if baseBalance 0 - it`s a withdrawBeforeFundStated call
             return;
@@ -466,11 +478,24 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundStatus = newFundStatus;
     }
 
-    function _getEndTime() private  returns (uint256){ 
+    function _getEndTime() private  view returns (uint256){ 
         return fundStartTimestamp + (fundDurationMonths.mul(monthDuration));
     }
 
-    /// @dev create path array for uni|cake swap
+    function _onTokenSwapAction(address _tokenFrom, address _tokenTo, uint256 _amountFrom, uint256 _amountTo) private { 
+        emit TokensSwap(_tokenFrom, _tokenTo, _amountFrom, _amountTo);
+
+        swapsInfo.push( 
+            SwapInfo(
+                _tokenFrom,
+                _tokenTo,
+                _amountFrom,
+                _amountTo
+            )
+        );
+    }
+
+    /// @dev create path array for uni|cake|etc.. swap
     function _createPath(address tokenFrom, address tokenTo)
         private
         pure

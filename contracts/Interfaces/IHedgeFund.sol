@@ -2,8 +2,6 @@
 pragma solidity ^0.6.6;
 
 interface IHedgeFund {
-    function getWETH() external view returns (address);
-
     function makeDeposit() external payable;
 
     function withdrawDeposits() external;
@@ -17,8 +15,6 @@ interface IHedgeFund {
     function setFundStatusClosed() external;
 
     function getEndTime() external view returns (uint256);
-
-    function getCurrentBalanceInWei() external view returns (uint256);
 
     function withdrawToManager() external;
 }
