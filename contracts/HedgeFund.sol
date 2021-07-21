@@ -151,8 +151,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         managerCollateral = _getCurrentBalanceInWei();
         profitFee = _hedgeFundInfo.profitFee;
 
-        // todo : store manager fee
-
         for (uint256 i; i < _hedgeFundInfo.allowedTokenAddresses.length; i++)
             isTokenAllowed[_hedgeFundInfo.allowedTokenAddresses[i]] = true;
     }
