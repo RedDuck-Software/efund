@@ -6,7 +6,6 @@ import "./SharedImports.sol";
 import "./FundFactory.sol";
 import "./HedgeFund.sol";
 import "./Types/HedgeFundInfo.sol";
-import "hardhat/console.sol";
 
 contract EFundPlatform {
     using OZSafeMath for uint256;
@@ -41,25 +40,31 @@ contract EFundPlatform {
 
     uint256 public constant percentageBase = 100;
 
-    int256 public constant bronzePeriodRewardPercentage = 10; // 10%
+    int256  public constant bronzePeriodRewardPercentage = 10; // 10%
 
-    int256 public constant silverPeriodRewardPercentage = 20; // 20%
+    int256  public constant silverPeriodRewardPercentage = 20; // 20%
 
-    int256 public constant goldPeriodRewardPercentage = 30; // 30%
+    int256  public constant goldPeriodRewardPercentage = 30; // 30%
     
-    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+    int256  public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
-    int256 public constant defaultFundFee = 10; // 10% - takes only when fund manager made some profit
+    int256  public constant defaultFundFee = 10; // 10% - takes only when fund manager made some profit
 
     uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
     
     uint256 public constant minimumManagerFee = 1; // 1%
 
     uint256 public constant maximumManagerFee = 10; // 10% 
+    
+    uint256 public constant minimumTimeUntillFundStart = 1 days;
+
+    uint256 public constant maximumTimeUntillFundStart = 10 days;
 
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
+
+
 
     modifier onlyForFundContract() {
         require(isFund[msg.sender], "Caller address is not a fund");
@@ -107,8 +112,12 @@ contract EFundPlatform {
         );
 
         require(_managerFee >= minimumManagerFee && _managerFee <= maximumManagerFee, 
-        "Manager fee value is outside the manager fee caps");
+        "Manager fee value is outside the manager fee gap");
 
+        require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
+            && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
+            "MinTimeUntillFundStart value is outside the fundStart gap"
+        );
 
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(

@@ -24,7 +24,7 @@ contract FundFactory is IFundFactory {
         );
 
         HedgeFund newFund = new HedgeFund(_hedgeFundInfo);
-
+        
         payable(address(newFund)).transfer(msg.value);
 
         return address(newFund);
