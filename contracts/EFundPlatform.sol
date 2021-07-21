@@ -52,9 +52,9 @@ contract EFundPlatform {
 
     uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
     
-    uint256 public constant minimumManagerFee = 1; // 1%
+    uint256 public constant minimumProfitFee = 1; // 1%
 
-    uint256 public constant maximumManagerFee = 10; // 10% 
+    uint256 public constant maximumProfitFee = 10; // 10% 
     
     uint256 public constant minimumTimeUntillFundStart = 1 days;
 
@@ -88,7 +88,7 @@ contract EFundPlatform {
         uint256 _fundDurationInMonths,
         uint256 _softCap, 
         uint256 _hardCap, 
-        uint256 _managerFee,
+        uint256 _profitFee,
         uint256 _minimalDepositAmount,
         uint256 _minTimeUntilFundStart,
         address payable[] memory _allowedTokens
@@ -111,7 +111,7 @@ contract EFundPlatform {
             "value is outside of caps"
         );
 
-        require(_managerFee >= minimumManagerFee && _managerFee <= maximumManagerFee, 
+        require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
         "Manager fee value is outside the manager fee gap");
 
         require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
@@ -127,7 +127,7 @@ contract EFundPlatform {
                     address(this),
                     _softCap,
                     _hardCap,
-                    _managerFee,
+                    _profitFee,
                     _minimalDepositAmount,
                     _minTimeUntilFundStart,
                     msg.sender,
@@ -146,8 +146,8 @@ contract EFundPlatform {
 
     function getTopRelevantFunds(uint256 _topAmount) public view returns (HedgeFund[] memory) {
         if(funds.length == 0) return funds;
-
-        require(_topAmount <= funds.length && _topAmount > 0,"Invalid _topAmount value");
+        
+        if(_topAmount >= funds.length) _topAmount = funds.length;
 
         HedgeFund[] memory fundsCopy = new HedgeFund[](funds.length); 
 

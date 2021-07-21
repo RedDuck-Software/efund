@@ -76,6 +76,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public immutable fundDurationMonths;
 
+    uint256 public immutable profitFee;
+
     uint256 public fundStartTimestamp;
 
     uint256 public baseBalance;
@@ -147,7 +149,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
         minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount; 
         managerCollateral = _getCurrentBalanceInWei();
-        
+        profitFee = _hedgeFundInfo.profitFee;
+
         // todo : store manager fee
 
         for (uint256 i; i < _hedgeFundInfo.allowedTokenAddresses.length; i++)
@@ -223,8 +226,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 fundFee = uint256(
             MathPercentage.calculateNumberFromPercentage(
                 MathPercentage.translsatePercentageFromBase(
-                    eFundPlatform.calculateManagerRewardPercentage(fundManager),
-                    eFundPlatform.percentageBase()
+                    int256(profitFee),
+                    100
                 ),
                 int256(endBalance)
             )
