@@ -377,7 +377,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             amountOut,
             path,
             address(this),
-            block.timestamp + depositTXDeadlineSeconds
+            block.timestamp.add(depositTXDeadlineSeconds)
         );
 
         if (!isTokenBought[tokenTo]) {
