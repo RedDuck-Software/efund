@@ -130,18 +130,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     constructor(HedgeFundInfo memory _hedgeFundInfo) public {
-        require(_validateDuration(_hedgeFundInfo._duration), "Invalid duration");
+        require(_validateDuration(_hedgeFundInfo.duration), "Invalid duration");
         
-        router = UniswapV2Router02(_hedgeFundInfo._swapRouterContract);
-        eFundToken = IERC20(_hedgeFundInfo._eFundTokenContract);
-        eFundPlatform = EFundPlatform(_hedgeFundInfo._eFundPlatform);
+        router = UniswapV2Router02(_hedgeFundInfo.swapRouterContract);
+        eFundToken = IERC20(_hedgeFundInfo.eFundTokenContract);
+        eFundPlatform = EFundPlatform(_hedgeFundInfo.eFundPlatform);
 
-        fundManager = _hedgeFundInfo._managerAddress;
+        fundManager = _hedgeFundInfo.managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDurationMonths = _hedgeFundInfo._duration;
-        softCap = _hedgeFundInfo._softCap;
-        hardCap = _hedgeFundInfo._hardCap;
-        allowedTokenAddresses = _hedgeFundInfo._allowedTokenAddresses;
+        fundDurationMonths = _hedgeFundInfo.duration;
+        softCap = _hedgeFundInfo.softCap;
+        hardCap = _hedgeFundInfo.hardCap;
+        allowedTokenAddresses = _hedgeFundInfo.allowedTokenAddresses;
         isDepositsWithdrawed = false;
         fundCreatedAt = block.timestamp;
         fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
@@ -150,8 +150,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         
         // todo : store manager fee
 
-        for (uint256 i; i < _hedgeFundInfo._allowedTokenAddresses.length; i++)
-            isTokenAllowed[_hedgeFundInfo._allowedTokenAddresses[i]] = true;
+        for (uint256 i; i < _hedgeFundInfo.allowedTokenAddresses.length; i++)
+            isTokenAllowed[_hedgeFundInfo.allowedTokenAddresses[i]] = true;
     }
 
     function getAllDeposits() public view returns (DepositInfo[] memory){
@@ -525,8 +525,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     // validate hedge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
-        return _d > 0;
-        // return _d == 1 || _d == 2 || _d == 3 || _d == 6;
+        return _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
     // Functions to receive Ether
