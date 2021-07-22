@@ -10,7 +10,7 @@ import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
 import "./Types/HedgeFundInfo.sol";
 
-struct SwapInfo { 
+struct SwapInfo {
     address from;
     address to;
     uint256 amountFrom;
@@ -46,18 +46,17 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     DepositInfo[] private deposits;
 
     SwapInfo[] private swapsInfo;
-    
+
     address payable[] private boughtTokenAddresses;
 
     address payable[] private allowedTokenAddresses;
-
 
     FundStatus public fundStatus;
 
     IERC20 public immutable eFundToken;
 
     EFundPlatform public immutable eFundPlatform;
-    
+
     UniswapV2Router02 public immutable router;
 
     uint256 public immutable minimalDepositAmount;
@@ -85,7 +84,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     uint256 public endBalance;
 
     uint256 public lockedManagerProfit;
-    
+
     mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
     mapping(address => bool) public isTokenAllowed;
@@ -97,7 +96,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     uint256 private constant monthDuration = 30 days;
-
 
     modifier onlyForFundManager() {
         require(
@@ -132,8 +130,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     constructor(HedgeFundInfo memory _hedgeFundInfo) public {
-        require(_validateDuration(_hedgeFundInfo.duration), "Invalid duration");
-        
+        require(
+            _validateDuration(_hedgeFundInfo.duration),
+            "Invalid duration"
+        );
+
         router = UniswapV2Router02(_hedgeFundInfo.swapRouterContract);
         eFundToken = IERC20(_hedgeFundInfo.eFundTokenContract);
         eFundPlatform = EFundPlatform(_hedgeFundInfo.eFundPlatform);
@@ -146,8 +147,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         allowedTokenAddresses = _hedgeFundInfo.allowedTokenAddresses;
         isDepositsWithdrawed = false;
         fundCreatedAt = block.timestamp;
-        fundCanBeStartedMinimumAt = block.timestamp + _hedgeFundInfo.minTimeUntilFundStart;
-        minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount; 
+        fundCanBeStartedMinimumAt =
+            block.timestamp +
+            _hedgeFundInfo.minTimeUntilFundStart;
+        minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount;
         managerCollateral = _getCurrentBalanceInWei();
         profitFee = _hedgeFundInfo.profitFee;
 
@@ -155,11 +158,33 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenAllowed[_hedgeFundInfo.allowedTokenAddresses[i]] = true;
     }
 
-    function getAllDeposits() public view returns (DepositInfo[] memory){
+    function getFundInfo()
+        public
+        view
+        returns (
+            bool _isDepositsWithdrawed,
+            address _fundManager,
+            uint256 _fundStartTimestamp,
+            uint256 _minDepositAmount,
+            uint256 _fundCanBeStartedAt,
+            uint256 _profitFee
+        )
+    {
+        return (
+            isDepositsWithdrawed,
+            fundManager,
+            fundStartTimestamp,
+            minimalDepositAmount,
+            fundCanBeStartedMinimumAt,
+            profitFee
+        );
+    }
+
+    function getAllDeposits() public view returns (DepositInfo[] memory) {
         return deposits;
     }
 
-    function getAllSwaps() public view returns (SwapInfo[] memory){
+    function getAllSwaps() public view returns (SwapInfo[] memory) {
         return swapsInfo;
     }
 
@@ -190,7 +215,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyInOpenedState
         onlyForFundManager
     {
-        require(fundCanBeStartedMinimumAt < block.timestamp, "Fund cannot be started at that moment");
+        require(
+            fundCanBeStartedMinimumAt < block.timestamp,
+            "Fund cannot be started at that moment"
+        );
 
         _updateFundStatus(FundStatus.ACTIVE);
         baseBalance = _getCurrentBalanceInWei();
@@ -255,8 +283,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     /// @notice withdraw your deposits before trading period is started
     function withdrawBeforeFundStarted() external override {
-        require(fundCreatedAt.add(fundCanBeStartedMinimumAt) < block.timestamp, 
-                "Cannot withdraw fund now"
+        require(
+            fundCreatedAt.add(fundCanBeStartedMinimumAt) < block.timestamp,
+            "Cannot withdraw fund now"
         );
 
         bool haveDeposits = false;
@@ -309,7 +338,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                         eFundPlatform.noProfitFundFee(),
+                        eFundPlatform.noProfitFundFee(),
                         100
                     ),
                     int256(address(this).balance)
@@ -329,11 +358,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         }
 
         // send fee to eFundPlatform
-        if(_getCurrentBalanceInWei() > 0)
+        if (_getCurrentBalanceInWei() > 0)
             payable(address(eFundPlatform)).transfer(platformFeeAmount);
-        
+
         // sending the rest to the fund manager
-        if(_getCurrentBalanceInWei() > 0)
+        if (_getCurrentBalanceInWei() > 0)
             fundManager.transfer(_getCurrentBalanceInWei());
     }
 
@@ -386,7 +415,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenBought[tokenTo] = true;
         }
 
-        _onTokenSwapAction(tokenFrom, tokenTo, amountIn, amounts[path.length - 1]);
+        _onTokenSwapAction(
+            tokenFrom,
+            tokenTo,
+            amountIn,
+            amounts[path.length - 1]
+        );
         return amounts[1];
     }
 
@@ -488,18 +522,23 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return address(this).balance;
     }
 
-    function _updateFundStatus(FundStatus newFundStatus) private { 
+    function _updateFundStatus(FundStatus newFundStatus) private {
         fundStatus = newFundStatus;
     }
 
-    function _getEndTime() private  view returns (uint256){ 
+    function _getEndTime() private view returns (uint256) {
         return fundStartTimestamp + (fundDurationMonths.mul(monthDuration));
     }
 
-    function _onTokenSwapAction(address _tokenFrom, address _tokenTo, uint256 _amountFrom, uint256 _amountTo) private { 
+    function _onTokenSwapAction(
+        address _tokenFrom,
+        address _tokenTo,
+        uint256 _amountFrom,
+        uint256 _amountTo
+    ) private {
         emit TokensSwap(_tokenFrom, _tokenTo, _amountFrom, _amountTo);
 
-        swapsInfo.push( 
+        swapsInfo.push(
             SwapInfo(
                 _tokenFrom,
                 _tokenTo,
