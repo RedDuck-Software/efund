@@ -151,7 +151,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             block.timestamp +
             _hedgeFundInfo.minTimeUntilFundStart;
         minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount;
-        managerCollateral = _getCurrentBalanceInWei();
+        managerCollateral = _hedgeFundInfo.managerCollateral;
         profitFee = _hedgeFundInfo.profitFee;
 
         for (uint256 i; i < _hedgeFundInfo.allowedTokenAddresses.length; i++)
@@ -167,7 +167,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             uint256 _fundStartTimestamp,
             uint256 _minDepositAmount,
             uint256 _fundCanBeStartedAt,
-            uint256 _profitFee
+            uint256 _profitFee,
+            FundStatus _fundStatus,
+            uint256 _currentBalance,
+            uint256 _managerCollateral,
+            uint256 _hardCap,
+            uint256 _softCap
         )
     {
         return (
@@ -176,7 +181,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             fundStartTimestamp,
             minimalDepositAmount,
             fundCanBeStartedMinimumAt,
-            profitFee
+            profitFee,
+            fundStatus,
+            address(this).balance,
+            managerCollateral,
+            hardCap,
+            softCap
         );
     }
 

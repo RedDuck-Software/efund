@@ -13,5 +13,6 @@ struct HedgeFundInfo {
     uint256 minTimeUntilFundStart;
     address payable managerAddress;
     uint256 duration;
+    uint256 managerCollateral;
     address payable[] allowedTokenAddresses;
 }

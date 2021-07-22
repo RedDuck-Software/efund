@@ -60,6 +60,8 @@ contract EFundPlatform {
 
     uint256 public constant maximumTimeUntillFundStart = 10 days;
 
+    // uint256 public constant minFundManagerCollateral = ;
+
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
@@ -132,6 +134,7 @@ contract EFundPlatform {
                     _minTimeUntilFundStart,
                     msg.sender,
                     _fundDurationInMonths,
+                    msg.value,
                     _allowedTokens
                 )
             );
