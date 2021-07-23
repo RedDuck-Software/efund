@@ -162,31 +162,33 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         public
         view
         returns (
-            bool _isDepositsWithdrawed,
             address _fundManager,
             uint256 _fundStartTimestamp,
             uint256 _minDepositAmount,
             uint256 _fundCanBeStartedAt,
+            uint256 _fundDurationInMonths,
             uint256 _profitFee,
             FundStatus _fundStatus,
             uint256 _currentBalance,
             uint256 _managerCollateral,
             uint256 _hardCap,
-            uint256 _softCap
+            uint256 _softCap,
+            uint256 _investorsAmount
         )
     {
         return (
-            isDepositsWithdrawed,
             fundManager,
             fundStartTimestamp,
             minimalDepositAmount,
             fundCanBeStartedMinimumAt,
+            fundDurationMonths,
             profitFee,
             fundStatus,
             address(this).balance,
             managerCollateral,
             hardCap,
-            softCap
+            softCap,
+            deposits.length
         );
     }
 
