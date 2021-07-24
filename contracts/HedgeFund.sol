@@ -15,7 +15,7 @@ struct SwapInfo {
     address to;
     uint256 amountFrom;
     uint256 amountTo;
-    uint256 timestamp;
+    uint block;
 }
 
 contract HedgeFund is IHedgeFund, IFundTrade {
@@ -83,7 +83,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
-    uint256 public lockedManagerProfit;
+    uint256 public lockedPlatforFee; // in eth|bnb
 
     mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
@@ -260,8 +260,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _updateFundStatus(FundStatus.COMPLETED);
 
         endBalance = _getCurrentBalanceInWei();
+        
+        uint256 fundFee;
 
-        uint256 fundFee = uint256(
+        fundFee = uint256(
             MathPercentage.calculateNumberFromPercentage(
                 MathPercentage.translsatePercentageFromBase(
                     int256(profitFee),
@@ -271,7 +273,20 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             )
         );
 
-        if (endBalance - fundFee > baseBalance) lockedManagerProfit = fundFee;
+        if(endBalance > fundFee && endBalance.sub(fundFee) > baseBalance) { 
+            lockedPlatforFee = fundFee;
+        }else{ 
+            lockedPlatforFee = uint256(
+                MathPercentage.calculateNumberFromPercentage(
+                    MathPercentage.translsatePercentageFromBase(
+                        int256(eFundPlatform.noProfitFundFee()),
+                        100
+                    ),
+                    int256(endBalance)
+                )
+            );
+        }
+
 
         emit FundStatusChanged(uint256(fundStatus));
     }
@@ -289,8 +304,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
 
         DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
-
         deposits.push(deposit);
+
+        eFundPlatform.onDepositMade(msg.sender);
     }
 
     /// @notice withdraw your deposits before trading period is started
@@ -335,7 +351,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         emit AllDepositsWithdrawed();
     }
 
-    function withdrawToManager() external override {
+    function withdrawManagerProfit() external override {
         require(
             isDepositsWithdrawed,
             "Can withdraw only after all depositst were withdrawed"
@@ -522,9 +538,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 int256(info.depositAmount) +
                     MathPercentage.calculateNumberFromPercentage(
                         percentage,
-                        int256(endBalance) -
-                            int256(baseBalance) -
-                            int256(lockedManagerProfit)
+                        int256(endBalance.sub(baseBalance).sub(lockedPlatforFee))
                     )
             )
         );
@@ -556,7 +570,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 _tokenTo,
                 _amountFrom,
                 _amountTo,
-                block.timestamp
+                block.number
             )
         );
     }

@@ -20,6 +20,8 @@ contract EFundPlatform {
 
     mapping(address => HedgeFund[]) private managerFunds;
 
+    mapping(address => HedgeFund[]) private investorFunds;
+
     FundFactory public immutable fundFactory;
 
     IERC20 public immutable eFund;
@@ -27,6 +29,8 @@ contract EFundPlatform {
     mapping(address => bool) public isFund;
 
     mapping(address => FundManagerActivityInfo) public managerFundActivity;
+
+    mapping(address => mapping(address => bool)) public isInvestorOf;
 
     mapping(address => uint256) public nextAvailableRewardClaimDate;
 
@@ -65,7 +69,6 @@ contract EFundPlatform {
     uint256 public immutable softCap;
 
     uint256 public immutable hardCap;
-
 
 
     modifier onlyForFundContract() {
@@ -196,6 +199,13 @@ contract EFundPlatform {
 
     function getCurrentEthBalance() public view returns (uint256){
         return address(this).balance;
+    }
+    
+    function onDepositMade(address _depositorAddress) public onlyForFundContract { 
+        if(isInvestorOf[_depositorAddress][msg.sender]) return; // fund is already added to list of invested funds
+
+        isInvestorOf[_depositorAddress][msg.sender] = true;
+        investorFunds[_depositorAddress].push(HedgeFund(msg.sender));
     }
 
     function closeFund() public onlyForFundContract {

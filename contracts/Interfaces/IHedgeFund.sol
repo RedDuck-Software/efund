@@ -16,5 +16,5 @@ interface IHedgeFund {
 
     function getEndTime() external view returns (uint256);
 
-    function withdrawToManager() external;
+    function withdrawManagerProfit() external;
 }
