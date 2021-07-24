@@ -59,25 +59,25 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     UniswapV2Router02 public immutable router;
 
-    uint256 public immutable minimalDepositAmount;
+    uint256 private immutable minimalDepositAmount;
 
     uint256 public immutable fundCreatedAt;
 
-    uint256 public immutable fundCanBeStartedMinimumAt;
+    uint256 private immutable fundCanBeStartedMinimumAt;
 
-    uint256 public immutable softCap;
+    uint256 private immutable softCap;
 
-    uint256 public immutable hardCap;
+    uint256 private immutable hardCap;
 
-    uint256 public immutable managerCollateral;
+    uint256 private immutable managerCollateral;
 
     address payable public immutable fundManager;
 
     uint256 public immutable fundDurationMonths;
 
-    uint256 public immutable profitFee;
+    uint256 private immutable profitFee;
 
-    uint256 public fundStartTimestamp;
+    uint256 private fundStartTimestamp;
 
     uint256 public baseBalance;
 
@@ -85,17 +85,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public lockedPlatforFee; // in eth|bnb
 
-    mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
+    mapping(address => bool) private isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
-    mapping(address => bool) public isTokenAllowed;
+    mapping(address => bool) private isTokenAllowed;
 
     bool public isDepositsWithdrawed;
-
-    int256 public constant managerProfitPercentage = 90; // 90%
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
     uint256 private constant monthDuration = 30 days;
+
 
     modifier onlyForFundManager() {
         require(
@@ -105,28 +104,18 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _;
     }
 
-    modifier onlyInActiveState() {
+    function onlyInActiveState() private view { 
         require(
             fundStatus == FundStatus.ACTIVE,
             "Fund should be in an Active status"
         );
-        _;
     }
 
-    modifier onlyInComplitedState() {
-        require(
-            fundStatus == FundStatus.COMPLETED,
-            "Fund should be in an Complited status"
-        );
-        _;
-    }
-
-    modifier onlyInOpenedState() {
+    function onlyInOpenedState() private view { 
         require(
             fundStatus == FundStatus.OPENED,
             "Fund should be in an Opened status"
         );
-        _;
     }
 
     constructor(HedgeFundInfo memory _hedgeFundInfo) public {
@@ -224,9 +213,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     function setFundStatusActive()
         external
         override
-        onlyInOpenedState
         onlyForFundManager
     {
+        onlyInOpenedState();
         require(
             fundCanBeStartedMinimumAt < block.timestamp,
             "Fund cannot be started at that moment"
@@ -242,16 +231,21 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     function setFundStatusClosed()
         external
         override
-        onlyInComplitedState
         onlyForFundManager
     {
+        require(
+            fundStatus == FundStatus.COMPLETED,
+            "Fund should be in an Complited status"
+        );
+
         _updateFundStatus(FundStatus.CLOSED);
         eFundPlatform.closeFund();
 
         emit FundStatusChanged(uint256(fundStatus));
     }
 
-    function setFundStatusCompleted() external override onlyInActiveState {
+    function setFundStatusCompleted() external override {
+        onlyInActiveState();
         // require(
         //     block.timestamp > _getEndTime(),
         //     "Fund is didn`t finish yet"
@@ -292,7 +286,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
-    function makeDeposit() external payable override onlyInOpenedState {
+    function makeDeposit() external payable override {
+        onlyInOpenedState();
         require(
             msg.value >= minimalDepositAmount,
             "Transaction value is less then minimum deposit amout"
@@ -350,14 +345,20 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         emit AllDepositsWithdrawed();
     }
+    
 
+    /*  ERR MSG ABBREVIATION
+
+        C0 : Can withdraw only after all depositst were withdrawed
+        B0 : Balance is 0, nothing to withdraw
+    */
     function withdrawManagerProfit() external override {
         require(
             isDepositsWithdrawed,
-            "Can withdraw only after all depositst were withdrawed"
+            "C0"
         );
 
-        require(address(this).balance > 0, "Balance is 0, nothing to withdraw");
+        require(address(this).balance > 0, "B0");
 
         uint256 platformFeeAmount;
 
@@ -394,13 +395,20 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             fundManager.transfer(_getCurrentBalanceInWei());
     }
 
-    /* trading section */
+    /*  ERR MSG ABBREVIATION
+
+        P0 : Path must be >= 2
+        T0 : Trading with not allowed tokens
+        T1 : You must to own {tokenFrom} first
+        T2 : Output amount is lower then {amountOutMin}
+    */
     function swapERC20ToERC20(
         address[] calldata path,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        require(path.length >= 2, "Path must be >= 2");
+    ) external override  onlyForFundManager returns (uint256) {
+        onlyInActiveState();
+        require(path.length >= 2, "P0");
 
         address tokenFrom = path[0];
         address tokenTo = path[path.length - 1];
@@ -410,11 +418,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 allowedTokenAddresses.length == 0
                     ? true // if empty array specified, all tokens are valid for trade
                     : isTokenAllowed[path[i]],
-                "Trading with not allowed tokens"
+                "T0"
             );
             require(
                 isTokenBought[tokenFrom],
-                "You must to own {tokenFrom} first"
+                "T1"
             );
         }
 
@@ -425,7 +433,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         require(
             amountOut >= amountOutMin,
-            "Output amount is lower then {amountOutMin}"
+            "T2"
         );
 
         IERC20(tokenFrom).approve(address(router), amountIn);
@@ -456,7 +464,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable tokenFrom,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
+    ) external override onlyForFundManager returns (uint256) {
+        onlyInActiveState();
         require(isTokenBought[tokenFrom], "You need to own {tokenFrom} first");
 
         address[] memory path = _createPath(tokenFrom, router.WETH());
@@ -487,7 +496,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         address payable tokenTo,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
+    ) external override onlyForFundManager returns (uint256) {
+        onlyInActiveState();
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
