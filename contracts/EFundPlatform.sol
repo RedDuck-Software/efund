@@ -88,6 +88,26 @@ contract EFundPlatform {
         eFund = IERC20(_efundToken);
     }
 
+    function getPlatformData() public view 
+            returns(
+                uint256 _softCap,
+                uint256 _hardCap,
+                uint256 _minimumTimeUntillFundStart, 
+                uint256 _maximumTimeUntillFundStart, 
+                uint256 _minimumProfitFee,
+                uint256 _maximumProfitFee
+            )
+    { 
+        return ( 
+            softCap,
+            hardCap,
+            minimumTimeUntillFundStart,
+            maximumTimeUntillFundStart,
+            minimumProfitFee,
+            maximumProfitFee
+        );
+    }
+
     function createFund(
         address payable _swapRouter,
         uint256 _fundDurationInMonths,
@@ -112,17 +132,17 @@ contract EFundPlatform {
         );
 
         require(
-            msg.value >= _softCap && msg.value <= _hardCap,
-            "value is outside of caps"
+            msg.value <= _hardCap,
+            "value must be lower then hard cap"
         );
 
         require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
-        "Manager fee value is outside the manager fee gap");
+            "Manager fee value is outside the manager fee gap");
 
-        require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
-            && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
-            "MinTimeUntillFundStart value is outside the fundStart gap"
-        );
+        // require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
+        //     && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
+        //     "MinTimeUntillFundStart value is outside the fundStart gap"
+        // );
 
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(

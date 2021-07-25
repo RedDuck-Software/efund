@@ -15,6 +15,7 @@ struct SwapInfo {
     address to;
     uint256 amountFrom;
     uint256 amountTo;
+    uint256 timeStamp;
     uint block;
 }
 
@@ -307,7 +308,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     /// @notice withdraw your deposits before trading period is started
     function withdrawBeforeFundStarted() external override {
         require(
-            fundCreatedAt.add(fundCanBeStartedMinimumAt) < block.timestamp,
+            fundCanBeStartedMinimumAt > block.timestamp,
             "Cannot withdraw fund now"
         );
 
@@ -580,6 +581,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 _tokenTo,
                 _amountFrom,
                 _amountTo,
+                block.timestamp,
                 block.number
             )
         );

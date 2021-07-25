@@ -11,7 +11,7 @@ import "./Tokens/ERC20/eFund.sol";
     ERR MSG ABBREVIATION
 
 CE0 : Hard cap must be bigger than soft cap
-CE1 : Invalid argument:Value sended must be >= softCap and <= hardCap
+CE1 : Invalid argument: Value sended must be <= hardCap
 
 */
 contract FundFactory is IFundFactory {
@@ -19,7 +19,7 @@ contract FundFactory is IFundFactory {
         require(_hedgeFundInfo.hardCap > _hedgeFundInfo.softCap, "CE0");
 
         require(
-            msg.value >= _hedgeFundInfo.softCap && msg.value <= _hedgeFundInfo.hardCap,
+            msg.value <= _hedgeFundInfo.hardCap,
             "CE1"
         );
 
