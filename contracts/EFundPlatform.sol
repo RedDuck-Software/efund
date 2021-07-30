@@ -208,9 +208,12 @@ contract EFundPlatform {
         return relevantFunds;
     }
 
-    function getManagerFunds(address manager) public view returns (HedgeFund[] memory) {
-        require(managerFundActivity[manager].isValue, "Manager does not exist");
-        return managerFunds[manager];
+    function getManagerFunds(address _manager) public view returns (HedgeFund[] memory) {
+        return managerFunds[_manager];
+    }
+
+    function getInvestorFunds(address _investor) public view returns (HedgeFund[] memory) {
+        return investorFunds[_investor];
     }
 
     function getAllFunds() public view returns (HedgeFund[] memory) {
