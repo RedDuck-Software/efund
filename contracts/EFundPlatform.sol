@@ -60,7 +60,7 @@ contract EFundPlatform {
 
     uint256 public constant maximumProfitFee = 10; // 10% 
     
-    uint256 public constant minimumTimeUntillFundStart = 1 days;
+    uint256 public constant minimumTimeUntillFundStart = 0 days;
 
     uint256 public constant maximumTimeUntillFundStart = 10 days;
 

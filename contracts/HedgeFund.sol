@@ -163,7 +163,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             uint256 _managerCollateral,
             uint256 _hardCap,
             uint256 _softCap,
-            uint256 _investorsAmount
+            DepositInfo[] memory _deposits
+            // uint256 _investorsAmount
         )
     {
         return (
@@ -178,7 +179,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             managerCollateral,
             hardCap,
             softCap,
-            deposits.length
+            deposits
         );
     }
 
