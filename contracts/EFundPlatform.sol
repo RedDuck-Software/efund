@@ -64,7 +64,7 @@ contract EFundPlatform {
 
     uint256 public constant maximumTimeUntillFundStart = 10 days;
 
-    // uint256 public constant minFundManagerCollateral = ;
+    uint256 public immutable minFundManagerCollateral;
 
     uint256 public immutable softCap;
 
@@ -83,6 +83,8 @@ contract EFundPlatform {
 
         hardCap = _hardCap;
         softCap = _softCap;
+
+        minFundManagerCollateral = _softCap.div(5);
 
         fundFactory = FundFactory(_fundFactory);
         eFund = IERC20(_efundToken);
@@ -132,8 +134,8 @@ contract EFundPlatform {
         );
 
         require(
-            msg.value <= _hardCap,
-            "value must be lower then hard cap"
+            msg.value >= minFundManagerCollateral &&  msg.value <= _hardCap,
+            "value must be lower then hard cap and bigger then minimum manager collateral"
         );
 
         require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
