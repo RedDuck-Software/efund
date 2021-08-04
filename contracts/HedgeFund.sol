@@ -604,7 +604,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     // validate hedge fund active state duration. Only valid 1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
-        return _d == 1 || _d == 2 || _d == 3 || _d == 6;
+        return _d == 0 || _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
     // Functions to receive Ether
