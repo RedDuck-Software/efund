@@ -52,8 +52,6 @@ contract EFundPlatform {
     
     int256  public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
 
-    int256  public constant defaultFundFee = 10; // 10% - takes only when fund manager made some profit
-
     uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
     
     uint256 public constant minimumProfitFee = 1; // 1%
