@@ -230,22 +230,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         emit FundStatusChanged(uint256(fundStatus));
     }
 
-    function setFundStatusClosed()
-        external
-        override
-        onlyForFundManager
-    {
-        require(
-            fundStatus == FundStatus.COMPLETED,
-            "Fund should be in an Complited status"
-        );
-
-        _updateFundStatus(FundStatus.CLOSED);
-        eFundPlatform.closeFund();
-
-        emit FundStatusChanged(uint256(fundStatus));
-    }
-
     function setFundStatusCompleted() external override {
         onlyInActiveState();
         // require(
@@ -282,7 +266,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 )
             );
         }
-
+        
+        eFundPlatform.closeFund();
 
         emit FundStatusChanged(uint256(fundStatus));
     }
@@ -330,8 +315,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     function withdrawDeposits() external override {
         require(
-            fundStatus == FundStatus.COMPLETED ||
-                fundStatus == FundStatus.CLOSED,
+            fundStatus == FundStatus.COMPLETED,
             "Fund is not complited yet"
         );
 
@@ -615,8 +599,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     enum FundStatus {
         OPENED,
         ACTIVE,
-        COMPLETED,
-        CLOSED
+        COMPLETED
     }
 
     struct DepositInfo {

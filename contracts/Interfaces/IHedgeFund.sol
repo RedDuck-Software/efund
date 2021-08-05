@@ -12,8 +12,6 @@ interface IHedgeFund {
 
     function setFundStatusCompleted() external;
 
-    function setFundStatusClosed() external;
-
     function getEndTime() external view returns (uint256);
 
     function withdrawManagerProfit() external;
