@@ -12,9 +12,9 @@ async function deployContractFactory() {
     return await Factory.deploy();
 }
 
-async function deployEFundPlatform(factory,bep20, hardCap, softCap) { 
+async function deployEFundPlatform(factory,bep20, hardCap, softCap, minimalCollateral) { 
     const Platform = await ethers.getContractFactory("EFundPlatform");
-    return await Platform.deploy(factory.address,bep20.address, hardCap, softCap);
+    return await Platform.deploy(factory.address,bep20.address, hardCap, softCap, minimalCollateral);
 }
 
 
@@ -25,7 +25,8 @@ async function main() {
     var factory = await deployContractFactory(bep20);
     console.log("Factory deployed to: '\x1b[36m%s\x1b[0m'", factory.address);
 
-    var platform = await deployEFundPlatform(factory,bep20, BigNumber.from('100000000000000000'), BigNumber.from('100000000000000000000'));
+    // softCap = 0.1 BNB, hardCap = 100 BNB, miminalManagerCollateral = 0.5 BNB
+    var platform = await deployEFundPlatform(factory,bep20, BigNumber.from('100000000000000000'), BigNumber.from('100000000000000000000'), BigNumber.from('50000000000000000'));
     console.log("EFundPlatform deployed to: '\x1b[36m%s\x1b[0m'", platform.address);
 }
 
