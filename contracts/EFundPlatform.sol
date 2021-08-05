@@ -44,20 +44,21 @@ contract EFundPlatform {
 
     uint256 public constant percentageBase = 100;
 
-    int256  public constant bronzePeriodRewardPercentage = 10; // 10%
+    int256 public constant bronzePeriodRewardPercentage = 10; // 10%
 
-    int256  public constant silverPeriodRewardPercentage = 20; // 20%
+    int256 public constant silverPeriodRewardPercentage = 20; // 20%
 
-    int256  public constant goldPeriodRewardPercentage = 30; // 30%
-    
-    int256  public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+    int256 public constant goldPeriodRewardPercentage = 30; // 30%
 
-    uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage = 10;
-    
+    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+
+    uint256 public constant maximumMinimalDepositAmountFromHardCapPercentage =
+        10;
+
     uint256 public constant minimumProfitFee = 1; // 1%
 
-    uint256 public constant maximumProfitFee = 10; // 10% 
-    
+    uint256 public constant maximumProfitFee = 10; // 10%
+
     uint256 public constant minimumTimeUntillFundStart = 0 days;
 
     uint256 public constant maximumTimeUntillFundStart = 10 days;
@@ -68,18 +69,32 @@ contract EFundPlatform {
 
     uint256 public immutable hardCap;
 
-
     modifier onlyForFundContract() {
         require(isFund[msg.sender], "Caller address is not a fund");
         _;
     }
-    
-    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap, uint256 _managerMinimalCollateral) public {
-        require(_fundFactory != address(0), "Invalid fundFactory address provided");
-        require(_efundToken != address(0), "Invalid eFund token address provided");
-        require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
-        require(_managerMinimalCollateral < _hardCap, "Minumal manager collateral cannot be >= hardCap");
-        
+
+    constructor(
+        address _fundFactory,
+        address _efundToken,
+        uint256 _softCap,
+        uint256 _hardCap,
+        uint256 _managerMinimalCollateral
+    ) public {
+        require(
+            _fundFactory != address(0),
+            "Invalid fundFactory address provided"
+        );
+        require(
+            _efundToken != address(0),
+            "Invalid eFund token address provided"
+        );
+        require(_hardCap > _softCap, "Hard cap must be bigger than soft cap");
+        require(
+            _managerMinimalCollateral < _hardCap,
+            "Minumal manager collateral cannot be >= hardCap"
+        );
+
         hardCap = _hardCap;
         softCap = _softCap;
 
@@ -89,17 +104,19 @@ contract EFundPlatform {
         eFund = IERC20(_efundToken);
     }
 
-    function getPlatformData() public view 
-            returns(
-                uint256 _softCap,
-                uint256 _hardCap,
-                uint256 _minimumTimeUntillFundStart, 
-                uint256 _maximumTimeUntillFundStart, 
-                uint256 _minimumProfitFee,
-                uint256 _maximumProfitFee
-            )
-    { 
-        return ( 
+    function getPlatformData()
+        public
+        view
+        returns (
+            uint256 _softCap,
+            uint256 _hardCap,
+            uint256 _minimumTimeUntillFundStart,
+            uint256 _maximumTimeUntillFundStart,
+            uint256 _minimumProfitFee,
+            uint256 _maximumProfitFee
+        )
+    {
+        return (
             softCap,
             hardCap,
             minimumTimeUntillFundStart,
@@ -112,14 +129,14 @@ contract EFundPlatform {
     function createFund(
         address payable _swapRouter,
         uint256 _fundDurationInMonths,
-        uint256 _softCap, 
-        uint256 _hardCap, 
+        uint256 _softCap,
+        uint256 _hardCap,
         uint256 _profitFee,
         uint256 _minimalDepositAmount,
         uint256 _minTimeUntilFundStart,
         address payable[] memory _allowedTokens
     ) public payable returns (address) {
-        require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
+        require(_hardCap > _softCap, "Hard cap must be bigger than soft cap");
 
         require(
             _hardCap <= hardCap && _softCap >= softCap,
@@ -128,75 +145,90 @@ contract EFundPlatform {
 
         require(
             _minimalDepositAmount > 0 &&
-            _minimalDepositAmount <= _hardCap.div(maximumMinimalDepositAmountFromHardCapPercentage),
+                _minimalDepositAmount <=
+                _hardCap.div(maximumMinimalDepositAmountFromHardCapPercentage),
             "Invalid minimalDepositAmount"
         );
 
         require(
-            msg.value >= minimalManagerCollateral &&  msg.value < _hardCap,
+            msg.value >= minimalManagerCollateral && msg.value < _hardCap,
             "value must be < hard cap and > than minimum manager collateral"
         );
 
-        require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
-            "Manager fee value is outside the manager fee gap");
+        require(
+            _profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee,
+            "Manager fee value is outside the manager fee gap"
+        );
 
-        require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
-            && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
+        require(
+            _minTimeUntilFundStart >= minimumTimeUntillFundStart &&
+                _minTimeUntilFundStart <= maximumTimeUntillFundStart,
             "MinTimeUntillFundStart value is outside the fundStart gap"
         );
 
-        address newFundAddress =
-            fundFactory.createFund{value: msg.value}(
-                HedgeFundInfo(
-                    _swapRouter,
-                    payable(address(eFund)),
-                    address(this),
-                    _softCap,
-                    _hardCap,
-                    _profitFee,
-                    _minimalDepositAmount,
-                    _minTimeUntilFundStart,
-                    msg.sender,
-                    _fundDurationInMonths,
-                    msg.value,
-                    _allowedTokens
-                )
-            );
+        address newFundAddress = fundFactory.createFund{value: msg.value}(
+            HedgeFundInfo(
+                _swapRouter,
+                payable(address(eFund)),
+                address(this),
+                _softCap,
+                _hardCap,
+                _profitFee,
+                _minimalDepositAmount,
+                _minTimeUntilFundStart,
+                msg.sender,
+                _fundDurationInMonths,
+                msg.value,
+                _allowedTokens
+            )
+        );
 
         funds.push(HedgeFund(payable(newFundAddress)));
         managerFunds[msg.sender].push(HedgeFund(payable(newFundAddress)));
         isFund[newFundAddress] = true;
 
-        if(!managerFundActivity[msg.sender].isValue)
-            managerFundActivity[msg.sender] = FundManagerActivityInfo(0,0,0,true);
+        if (!managerFundActivity[msg.sender].isValue)
+            managerFundActivity[msg.sender] = FundManagerActivityInfo(
+                0,
+                0,
+                0,
+                true
+            );
     }
 
-    function getTopRelevantFunds(uint256 _topAmount) public view returns (HedgeFund[] memory) {
-        if(funds.length == 0) return funds;
-        
-        if(_topAmount >= funds.length) _topAmount = funds.length;
+    function getTopRelevantFunds(uint256 _topAmount)
+        public
+        view
+        returns (HedgeFund[] memory)
+    {
+        if (funds.length == 0) return funds;
 
-        HedgeFund[] memory fundsCopy = new HedgeFund[](funds.length); 
+        if (_topAmount >= funds.length) _topAmount = funds.length;
 
-        for (uint256 i = 0; i < funds.length; i++)
-            fundsCopy[i] = funds[i]; 
+        HedgeFund[] memory fundsCopy = new HedgeFund[](funds.length);
+
+        for (uint256 i = 0; i < funds.length; i++) fundsCopy[i] = funds[i];
 
         HedgeFund[] memory relevantFunds = new HedgeFund[](_topAmount);
 
-        for (uint i = 0; i < fundsCopy.length; i++) {
-            for (uint j = 0; j < fundsCopy.length - i - 1; j++) {
-                if (managerFundActivity[fundsCopy[j].fundManager()].successCompletedFunds 
-                        > managerFundActivity[fundsCopy[j + 1].fundManager()].successCompletedFunds 
-                    &&
-                        address(fundsCopy[j]).balance > address(fundsCopy[j + 1]).balance) {
-                            HedgeFund temp = fundsCopy[j + 1];
-                            fundsCopy[j + 1] = fundsCopy[j];
-                            fundsCopy[j] = temp;
+        for (uint256 i = 0; i < fundsCopy.length; i++) {
+            for (uint256 j = 0; j < fundsCopy.length - i - 1; j++) {
+                if (
+                    managerFundActivity[fundsCopy[j].fundManager()]
+                        .successCompletedFunds >
+                    managerFundActivity[fundsCopy[j + 1].fundManager()]
+                        .successCompletedFunds &&
+                    address(fundsCopy[j]).balance >
+                    address(fundsCopy[j + 1]).balance
+                ) {
+                    HedgeFund temp = fundsCopy[j + 1];
+                    fundsCopy[j + 1] = fundsCopy[j];
+                    fundsCopy[j] = temp;
                 }
             }
         }
 
-        uint j = funds.length - 1;
+        uint256 j = funds.length - 1;
 
         for (uint256 i = 0; i < _topAmount; i++) {
             relevantFunds[i] = fundsCopy[j];
@@ -206,11 +238,19 @@ contract EFundPlatform {
         return relevantFunds;
     }
 
-    function getManagerFunds(address _manager) public view returns (HedgeFund[] memory) {
+    function getManagerFunds(address _manager)
+        public
+        view
+        returns (HedgeFund[] memory)
+    {
         return managerFunds[_manager];
     }
 
-    function getInvestorFunds(address _investor) public view returns (HedgeFund[] memory) {
+    function getInvestorFunds(address _investor)
+        public
+        view
+        returns (HedgeFund[] memory)
+    {
         return investorFunds[_investor];
     }
 
@@ -218,32 +258,40 @@ contract EFundPlatform {
         return funds;
     }
 
-    function getCurrentEthBalance() public view returns (uint256){
+    function getCurrentEthBalance() public view returns (uint256) {
         return address(this).balance;
     }
-    
-    function onDepositMade(address _depositorAddress) public onlyForFundContract { 
-        if(isInvestorOf[_depositorAddress][msg.sender]) return; // fund is already added to list of invested funds
+
+    function onDepositMade(address _depositorAddress)
+        public
+        onlyForFundContract
+    {
+        if (isInvestorOf[_depositorAddress][msg.sender]) return; // fund is already added to list of invested funds
 
         isInvestorOf[_depositorAddress][msg.sender] = true;
         investorFunds[_depositorAddress].push(HedgeFund(msg.sender));
     }
 
     function closeFund() public onlyForFundContract {
-        HedgeFund fund = HedgeFund(msg.sender); // sender is a contract 
+        HedgeFund fund = HedgeFund(msg.sender); // sender is a contract
         require(fund.getEndTime() < block.timestamp, "Fund is not completed");
 
         address managerAddresss = fund.fundManager();
 
-        uint256 _curActivity = managerFundActivity[managerAddresss].fundActivityMonths;
+        uint256 _curActivity = managerFundActivity[managerAddresss]
+            .fundActivityMonths;
 
-        managerFundActivity[managerAddresss].fundActivityMonths = _curActivity.add(fund.fundDurationMonths());
+        managerFundActivity[managerAddresss].fundActivityMonths = _curActivity
+            .add(fund.fundDurationMonths());
 
-        managerFundActivity[managerAddresss].completedFunds = managerFundActivity[managerAddresss].completedFunds.add(1);
-        managerFundActivity[managerAddresss].successCompletedFunds =
-               managerFundActivity[managerAddresss].successCompletedFunds.add(
-               fund.endBalance() > fund.baseBalance() ? 1 : 0
-        );
+        managerFundActivity[managerAddresss]
+            .completedFunds = managerFundActivity[managerAddresss]
+            .completedFunds
+            .add(1);
+        managerFundActivity[managerAddresss]
+            .successCompletedFunds = managerFundActivity[managerAddresss]
+            .successCompletedFunds
+            .add(fund.endBalance() > fund.baseBalance() ? 1 : 0);
     }
 
     function claimHolderReward() public {
@@ -259,8 +307,9 @@ contract EFundPlatform {
         uint256 reward = calculateHolderReward(msg.sender);
 
         // update rewardCycleBlock
-        nextAvailableRewardClaimDate[msg.sender] =
-            block.timestamp.add(rewardCycleBlock);
+        nextAvailableRewardClaimDate[msg.sender] = block.timestamp.add(
+            rewardCycleBlock
+        );
 
         (bool sent, ) = address(msg.sender).call{value: reward}("");
 
@@ -278,17 +327,17 @@ contract EFundPlatform {
         view
         returns (uint256 reward)
     {
-        uint256 _totalSupply = 
-            eFund.totalSupply()
+        uint256 _totalSupply = eFund
+            .totalSupply()
             .sub(eFund.balanceOf(address(this)))
             .sub(eFund.balanceOf(address(0)));
 
-
-        return _calculateHolderReward(
-            eFund.balanceOf(address(ofAddress)),
-            address(this).balance,
-            _totalSupply
-        );
+        return
+            _calculateHolderReward(
+                eFund.balanceOf(address(ofAddress)),
+                address(this).balance,
+                _totalSupply
+            );
     }
 
     function calculateManagerRewardPercentage(address _address)
@@ -296,10 +345,15 @@ contract EFundPlatform {
         view
         returns (int256)
     {
-        require(managerFundActivity[_address].isValue, "Address is not a fund manager");
+        require(
+            managerFundActivity[_address].isValue,
+            "Address is not a fund manager"
+        );
 
         return
-            _calculateManagerRewardPercentage(managerFundActivity[_address].fundActivityMonths);
+            _calculateManagerRewardPercentage(
+                managerFundActivity[_address].fundActivityMonths
+            );
     }
 
     function _calculateHolderReward(

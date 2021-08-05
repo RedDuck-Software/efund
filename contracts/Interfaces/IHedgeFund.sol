@@ -4,7 +4,7 @@ pragma solidity ^0.6.6;
 interface IHedgeFund {
     function makeDeposit() external payable;
 
-    function withdrawDeposits() external;
+    function withdrawDepositsOf(address payable _of) external;
 
     function withdrawDepositsBeforeFundStarted() external;
 
@@ -14,5 +14,5 @@ interface IHedgeFund {
 
     function getEndTime() external view returns (uint256);
 
-    function withdrawManagerProfit() external;
+    function withdrawFundProfit() external;
 }
