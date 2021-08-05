@@ -32,7 +32,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     event DepositWithdrawedBeforeActiveState(
         address payable indexed _depositOwner,
-        uint256 indexed _id
+        uint256 indexed _amount
     );
 
     event TokensSwap(
@@ -48,6 +48,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     SwapInfo[] private swapsInfo;
 
+    mapping(address => uint256) private userDeposits;
+    
     address payable[] private boughtTokenAddresses;
 
     address payable[] private allowedTokenAddresses;
@@ -286,8 +288,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
 
         DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
-        deposits.push(deposit);
 
+        userDeposits[msg.sender] = userDeposits[msg.sender].add(msg.value);
+
+        deposits.push(deposit);
+        
         eFundPlatform.onDepositMade(msg.sender);
     }
 
@@ -298,21 +303,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Cannot withdraw fund now"
         );
 
-        bool haveDeposits = false;
+        require(
+            userDeposits[msg.sender] != 0, 
+            "You have no deposits in this fund"
+        );
+        uint256 totalDepositsAmount = userDeposits[msg.sender];
 
-        for (uint256 i = 0; i < deposits.length; i++) {
-            if (deposits[i].depositOwner == payable(msg.sender)) {
-                DepositInfo memory depositsCopy = deposits[i];
-                delete deposits[i];
-                haveDeposits = true;
-                _withdraw(depositsCopy);
-                emit DepositWithdrawedBeforeActiveState(msg.sender, i);
-            }
-        }
+        userDeposits[msg.sender] = 0;
 
-        require(haveDeposits, "You have not any deposits in hedge fund");
+        _withdraw(DepositInfo(msg.sender, totalDepositsAmount));
+
+        emit DepositWithdrawedBeforeActiveState(msg.sender, totalDepositsAmount);
     }
-
+    
     function withdrawDeposits() external override {
         require(
             fundStatus == FundStatus.COMPLETED,
@@ -349,7 +352,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 platformFeeAmount;
 
         if (baseBalance >= endBalance) {
-            // take 3% fee
+            // take 3% fee, because fund is not succeed
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
@@ -360,11 +363,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 )
             );
         } else {
-            // otherwise, 90% to fund manager, 10% - to eFund platform
+            // otherwise
             platformFeeAmount = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        eFundPlatform.defaultFundFee(),
+                        100 - eFundPlatform.calculateManagerRewardPercentage(fundManager),
                         100
                     ),
                     int256(address(this).balance)
