@@ -6,7 +6,7 @@ interface IHedgeFund {
 
     function withdrawDeposits() external;
 
-    function withdrawBeforeFundStarted() external;
+    function withdrawDepositsBeforeFundStarted() external;
 
     function setFundStatusActive() external;
 

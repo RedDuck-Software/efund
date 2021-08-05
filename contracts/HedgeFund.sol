@@ -297,7 +297,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @notice withdraw your deposits before trading period is started
-    function withdrawBeforeFundStarted() external override {
+    function withdrawDepositsBeforeFundStarted() external override {
         require(
             block.timestamp > fundCanBeStartedMinimumAt,
             "Cannot withdraw fund now"
