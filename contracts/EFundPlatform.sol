@@ -141,10 +141,10 @@ contract EFundPlatform {
         require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
             "Manager fee value is outside the manager fee gap");
 
-        // require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
-        //     && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
-        //     "MinTimeUntillFundStart value is outside the fundStart gap"
-        // );
+        require(_minTimeUntilFundStart >= minimumTimeUntillFundStart 
+            && _minTimeUntilFundStart <= maximumTimeUntillFundStart, 
+            "MinTimeUntillFundStart value is outside the fundStart gap"
+        );
 
         address newFundAddress =
             fundFactory.createFund{value: msg.value}(
@@ -169,7 +169,7 @@ contract EFundPlatform {
         isFund[newFundAddress] = true;
 
         if(!managerFundActivity[msg.sender].isValue)
-            managerFundActivity[msg.sender] = FundManagerActivityInfo(0,0, true);
+            managerFundActivity[msg.sender] = FundManagerActivityInfo(0,0,0,true);
     }
 
     function getTopRelevantFunds(uint256 _topAmount) public view returns (HedgeFund[] memory) {
@@ -184,21 +184,18 @@ contract EFundPlatform {
 
         HedgeFund[] memory relevantFunds = new HedgeFund[](_topAmount);
 
-        console.log("fund length: ", fundsCopy.length);
-
         for (uint i = 0; i < fundsCopy.length; i++) {
             for (uint j = 0; j < fundsCopy.length - i - 1; j++) {
-                if (address(fundsCopy[j]).balance > address(fundsCopy[j + 1]).balance 
-                    || managerFundActivity[fundsCopy[j].fundManager()].reputation 
-                        > managerFundActivity[fundsCopy[j + 1].fundManager()].reputation) {
+                if (managerFundActivity[fundsCopy[j].fundManager()].successCompletedFunds 
+                        > managerFundActivity[fundsCopy[j + 1].fundManager()].successCompletedFunds 
+                    &&
+                        address(fundsCopy[j]).balance > address(fundsCopy[j + 1]).balance) {
                             HedgeFund temp = fundsCopy[j + 1];
                             fundsCopy[j + 1] = fundsCopy[j];
                             fundsCopy[j] = temp;
                 }
             }
         }
-
-        console.log("sorting done");
 
         uint j = funds.length - 1;
 
@@ -240,8 +237,14 @@ contract EFundPlatform {
         address managerAddresss = fund.fundManager();
 
         uint256 _curActivity = managerFundActivity[managerAddresss].fundActivityMonths;
+
         managerFundActivity[managerAddresss].fundActivityMonths = _curActivity.add(fund.fundDurationMonths());
-        managerFundActivity[managerAddresss].reputation = _calculateManagerReputation(managerAddresss);
+
+        managerFundActivity[managerAddresss].completedFunds = managerFundActivity[managerAddresss].completedFunds.add(1);
+        managerFundActivity[managerAddresss].successCompletedFunds =
+               managerFundActivity[managerAddresss].successCompletedFunds.add(
+               fund.endBalance() > fund.baseBalance() ? 1 : 0
+        );
     }
 
     function claimHolderReward() public {
@@ -313,33 +316,6 @@ contract EFundPlatform {
         isExcludedFromReward[_address] = true;
     }
 
-    function _calculateManagerReputation(address manager) private view returns (uint256){ 
-        require(managerFundActivity[manager].isValue, "Manager doest not exist");
-
-        HedgeFund[] memory mFunds = managerFunds[manager];
-
-        (uint256 totalFundsCompleted, 
-            uint256 successFunds, 
-            uint256 totalFundsSizes) = (0,0,0);
-
-        for (uint256 i = 0; i < mFunds.length; i++) {
-            if(mFunds[i].endBalance() != 0) { 
-                totalFundsCompleted++;
-                successFunds += mFunds[i].endBalance() > mFunds[i].baseBalance() ? 1 : 0;
-                totalFundsSizes += mFunds[i].endBalance();
-            }
-        }
-
-        uint256 successRate =
-            uint256(MathPercentage.calculateNumberFromNumberPercentage(int256(successFunds), int256(totalFundsCompleted)));
-
-        // Formula: success rate % + 0.1* size of fund + 0.1%
-        return 
-            successRate
-            .add(totalFundsSizes.div(10))
-            .add(successFunds.div(1000));
-    }
-
     function _calculateManagerRewardPercentage(uint256 _duration)
         private
         pure
@@ -357,7 +333,8 @@ contract EFundPlatform {
 
     struct FundManagerActivityInfo {
         uint256 fundActivityMonths;
-        uint256 reputation;
+        uint256 completedFunds;
+        uint256 successCompletedFunds;
         bool isValue;
     }
 }
