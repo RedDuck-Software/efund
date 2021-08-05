@@ -12,9 +12,9 @@ async function deployContractFactory() {
     return await Factory.deploy();
 }
 
-async function deployEFundPlatform(factory,erc20, hardCap, softCap) { 
+async function deployEFundPlatform(factory,erc20, hardCap, softCap, minimalCollateral) { 
     const Platform = await ethers.getContractFactory("EFundPlatform");
-    return await Platform.deploy(factory.address,erc20.address, hardCap, softCap);
+    return await Platform.deploy(factory.address,erc20.address, hardCap, softCap, minimalCollateral);
 }
 
 

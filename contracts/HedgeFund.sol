@@ -283,7 +283,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             "Max cap is overflowed. Try to send lower value"
         );
 
-        DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
+        DepositInfo memory deposit = DepositInfo(msg.sender, msg.value, false);
 
         userDeposits[msg.sender] = userDeposits[msg.sender].add(msg.value);
 
@@ -308,7 +308,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         userDeposits[msg.sender] = 0;
 
-        _withdraw(DepositInfo(msg.sender, totalDepositsAmount));
+        _withdraw(DepositInfo(msg.sender, totalDepositsAmount, false));
 
         emit DepositWithdrawedBeforeActiveState(
             msg.sender,
@@ -325,7 +325,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         userDeposits[_of] = 0;
 
-        _withdraw(DepositInfo(_of, totalDepositsAmount));
+        _withdraw(DepositInfo(_of, totalDepositsAmount, false));
+
+        for (uint i = 0; i < deposits.length; i++)
+            if(deposits[i].depositOwner == _of)  deposits[i].isWithdrawed = true;
 
         emit DepositsWitdrawed(_of, totalDepositsAmount);
     }
@@ -591,5 +594,6 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     struct DepositInfo {
         address payable depositOwner;
         uint256 depositAmount;
+        bool isWithdrawed;
     }
 }
