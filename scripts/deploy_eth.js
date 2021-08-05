@@ -25,7 +25,8 @@ async function main() {
     var factory = await deployContractFactory(erc20);
     console.log("Factory deployed to: '\x1b[36m%s\x1b[0m'", factory.address);
 
-    var platform = await deployEFundPlatform(factory,erc20, BigNumber.from('100000000000000000'), BigNumber.from('100000000000000000000'));
+    // softCap = 0.1 ETH, hardCap = 100 ETH, miminalManagerCollateral = 0.5 ETH
+    var platform = await deployEFundPlatform(factory,erc20, BigNumber.from('100000000000000000'), BigNumber.from('100000000000000000000'), BigNumber.from('500000000000000000'));
     console.log("EFundPlatform deployed to: '\x1b[36m%s\x1b[0m'", platform.address);
 }
 

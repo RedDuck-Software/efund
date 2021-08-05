@@ -64,7 +64,7 @@ contract EFundPlatform {
 
     uint256 public constant maximumTimeUntillFundStart = 10 days;
 
-    uint256 public immutable minFundManagerCollateral;
+    uint256 public immutable minimalManagerCollateral;
 
     uint256 public immutable softCap;
 
@@ -76,15 +76,16 @@ contract EFundPlatform {
         _;
     }
     
-    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap) public {
+    constructor(address _fundFactory, address _efundToken, uint256 _softCap, uint256 _hardCap, uint256 _managerMinimalCollateral) public {
         require(_fundFactory != address(0), "Invalid fundFactory address provided");
         require(_efundToken != address(0), "Invalid eFund token address provided");
         require( _hardCap > _softCap, "Hard cap must be bigger than soft cap");
-
+        require(_managerMinimalCollateral < _hardCap, "Minumal manager collateral cannot be >= hardCap");
+        
         hardCap = _hardCap;
         softCap = _softCap;
 
-        minFundManagerCollateral = _softCap.div(5);
+        minimalManagerCollateral = _managerMinimalCollateral;
 
         fundFactory = FundFactory(_fundFactory);
         eFund = IERC20(_efundToken);
@@ -134,8 +135,8 @@ contract EFundPlatform {
         );
 
         require(
-            msg.value >= minFundManagerCollateral &&  msg.value <= _hardCap,
-            "value must be lower then hard cap and bigger then minimum manager collateral"
+            msg.value >= minimalManagerCollateral &&  msg.value < _hardCap,
+            "value must be < hard cap and > than minimum manager collateral"
         );
 
         require(_profitFee >= minimumProfitFee && _profitFee <= maximumProfitFee, 
@@ -232,7 +233,7 @@ contract EFundPlatform {
 
     function closeFund() public onlyForFundContract {
         HedgeFund fund = HedgeFund(msg.sender); // sender is a contract 
-        require(fund.getEndTime() < block.timestamp && fund.isDepositsWithdrawed(), "Fund is not completed");
+        require(fund.getEndTime() < block.timestamp, "Fund is not completed");
 
         address managerAddresss = fund.fundManager();
 
