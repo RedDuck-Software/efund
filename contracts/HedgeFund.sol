@@ -232,7 +232,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
 
         _updateFundStatus(FundStatus.ACTIVE);
-        baseBalance = _getCurrentBalanceInWei();
+        baseBalance = _currentBalanceWithoutManagerCollateral();
         fundStartTimestamp = block.timestamp;
 
         emit FundStatusChanged(uint256(fundStatus));
@@ -248,7 +248,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         _updateFundStatus(FundStatus.COMPLETED);
 
         // dosent count manager collateral
-        originalEndBalance = _getCurrentBalanceInWei();
+        originalEndBalance = _currentBalanceWithoutManagerCollateral();
 
         int256 totalFundFeePercentage;
 
@@ -272,7 +272,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             // cannot pay all investemnts - so manager collateral counts too
             endBalance = address(this).balance;
         } else {
-            endBalance = _getCurrentBalanceInWei();
+            endBalance = _currentBalanceWithoutManagerCollateral();
         }
 
         eFundPlatform.closeFund();
@@ -289,7 +289,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
 
         require(
-            _getCurrentBalanceInWei().add(msg.value) <= hardCap,
+            _currentBalanceWithoutManagerCollateral().add(msg.value) <= hardCap,
             "Max cap is overflowed. Try to send lower value"
         );
 
@@ -354,14 +354,14 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     function withdrawFundProfit() external override {
         onlyInCompletedState();
         require(!fundProfitWitdrawed, "Fund profit is already withdrawed");
-        require(_getCurrentBalanceInWei() > 0, "B0");
+        require(_currentBalanceWithoutManagerCollateral() > 0, "B0");
 
         fundProfitWitdrawed = true;
 
         uint256 platformFee;
         uint256 managerProfit;
 
-        if (baseBalance >= endBalance) {
+        if (baseBalance >= originalEndBalance) {
             platformFee = lockedFundProfit;
         } else {
             // otherwise
@@ -383,7 +383,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         managerProfit = lockedFundProfit.sub(platformFee);
 
         // send fee to eFundPlatform
-        if (_getCurrentBalanceInWei() >= platformFee)
+        if (address(this).balance >= platformFee)
             payable(address(eFundPlatform)).transfer(platformFee);
 
         // sending the rest to the fund manager
@@ -497,7 +497,10 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyForFundManager {
         onlyInActiveState();
-        require(amountIn < _getCurrentBalanceInWei(), "Insufficient amount of ETH");
+        require(
+            amountIn < _currentBalanceWithoutManagerCollateral(),
+            "Insufficient amount of ETH"
+        );
 
         require(
             allowedTokenAddresses.length == 0
@@ -555,7 +558,11 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     }
 
     /// @return balance of current fund without managerCollateral
-    function _getCurrentBalanceInWei() private view returns (uint256) {
+    function _currentBalanceWithoutManagerCollateral()
+        private
+        view
+        returns (uint256)
+    {
         return address(this).balance.sub(managerCollateral);
     }
 
