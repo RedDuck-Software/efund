@@ -89,6 +89,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
     uint256 public endBalance;
 
+    uint256 public originalEndBalance;
+
     uint256 public lockedFundProfit; // in eth|bnb
 
     bool public fundProfitWitdrawed;
@@ -245,11 +247,12 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         _updateFundStatus(FundStatus.COMPLETED);
 
-        endBalance = _getCurrentBalanceInWei();
+        // dosent count manager collateral
+        originalEndBalance = _getCurrentBalanceInWei();
 
         int256 totalFundFeePercentage;
 
-        if (endBalance < baseBalance) {
+        if (originalEndBalance < baseBalance) {
             totalFundFeePercentage = eFundPlatform.noProfitFundFee();
         } else {
             totalFundFeePercentage = int256(profitFee);
@@ -261,9 +264,16 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                     totalFundFeePercentage,
                     100
                 ),
-                int256(endBalance)
+                int256(originalEndBalance)
             )
         );
+
+        if (originalEndBalance.sub(lockedFundProfit) < baseBalance) {
+            // cannot pay all investemnts - so manager collateral counts too
+            endBalance = address(this).balance;
+        } else {
+            endBalance = _getCurrentBalanceInWei();
+        }
 
         eFundPlatform.closeFund();
 
@@ -327,8 +337,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
 
         _withdraw(DepositInfo(_of, totalDepositsAmount, false));
 
-        for (uint i = 0; i < deposits.length; i++)
-            if(deposits[i].depositOwner == _of)  deposits[i].isWithdrawed = true;
+        for (uint256 i = 0; i < deposits.length; i++)
+            if (deposits[i].depositOwner == _of)
+                deposits[i].isWithdrawed = true;
 
         emit DepositsWitdrawed(_of, totalDepositsAmount);
     }
@@ -368,6 +379,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             );
         }
 
+        // if manager > 0 means that fund was succeed and manager take some profit from it
         managerProfit = lockedFundProfit.sub(platformFee);
 
         // send fee to eFundPlatform
@@ -375,8 +387,19 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             payable(address(eFundPlatform)).transfer(platformFee);
 
         // sending the rest to the fund manager
-        if (managerProfit > 0 && _getCurrentBalanceInWei() >= managerProfit)
+        if (managerProfit > 0 && address(this).balance >= managerProfit) {
             fundManager.transfer(managerProfit);
+        }
+
+        // withdraw manager collaterall
+        // if originalEndBalance == endBalance - manager collateral doesnt included into endBalance
+        if (
+            managerProfit > 0 &&
+            originalEndBalance == endBalance &&
+            address(this).balance >= managerCollateral
+        ) {
+            fundManager.transfer(managerCollateral);
+        }
     }
 
     /*  ERR MSG ABBREVIATION
@@ -474,6 +497,8 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         uint256 amountOutMin
     ) external override onlyForFundManager {
         onlyInActiveState();
+        require(amountIn < _getCurrentBalanceInWei(), "Insufficient amount of ETH");
+
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
@@ -529,8 +554,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         );
     }
 
+    /// @return balance of current fund without managerCollateral
     function _getCurrentBalanceInWei() private view returns (uint256) {
-        return address(this).balance;
+        return address(this).balance.sub(managerCollateral);
     }
 
     function _updateFundStatus(FundStatus newFundStatus) private {

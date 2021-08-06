@@ -113,7 +113,8 @@ contract EFundPlatform {
             uint256 _minimumTimeUntillFundStart,
             uint256 _maximumTimeUntillFundStart,
             uint256 _minimumProfitFee,
-            uint256 _maximumProfitFee
+            uint256 _maximumProfitFee,
+            uint256 _minimalManagerCollateral
         )
     {
         return (
@@ -122,7 +123,8 @@ contract EFundPlatform {
             minimumTimeUntillFundStart,
             maximumTimeUntillFundStart,
             minimumProfitFee,
-            maximumProfitFee
+            maximumProfitFee,
+            minimalManagerCollateral
         );
     }
 
@@ -288,10 +290,11 @@ contract EFundPlatform {
             .completedFunds = managerFundActivity[managerAddresss]
             .completedFunds
             .add(1);
+
         managerFundActivity[managerAddresss]
             .successCompletedFunds = managerFundActivity[managerAddresss]
             .successCompletedFunds
-            .add(fund.endBalance() > fund.baseBalance() ? 1 : 0);
+            .add(fund.originalEndBalance() > fund.baseBalance() ? 1 : 0);
     }
 
     function claimHolderReward() public {
