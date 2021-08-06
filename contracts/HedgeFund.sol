@@ -268,9 +268,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         onlyInActiveState();
         require(block.timestamp > _getEndTime(), "NF"); // commented for testing
 
-        // address(this).delegatecall(
-        //     abi.encodeWithSignature("swapAllTokensIntoETH()")
-        // );
+        _swapAllTokensIntoETH();
 
         _updateFundStatus(FundStatus.COMPLETED);
 
@@ -310,11 +308,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     /*
         FS - Fund should be started
     */
-    function swapAllTokensIntoETH() public {
-        onlyForFundManager();
-
-        require(fundStatus != FundStatus.OPENED, "FS");
-
+    function _swapAllTokensIntoETH() private {
         for (uint256 i; i < boughtTokenAddresses.length; i++) {
             address[] memory path = _createPath(
                 boughtTokenAddresses[i],
