@@ -9,23 +9,17 @@ struct HedgeFundInfo {
 }
 
 interface IHedgeFund {
-    function getWETH() external view returns (address);
-
     function makeDeposit() external payable;
 
-    function withdraw() external;
+    function withdrawDepositsOf(address payable _of) external;
 
-    function withdrawBeforeFundStarted() external;
+    function withdrawDepositsBeforeFundStarted() external;
 
     function setFundStatusActive() external;
 
     function setFundStatusCompleted() external;
 
-    function setFundStatusClosed() external;
-
     function getEndTime() external view returns (uint256);
 
-    function getCurrentBalanceInWei() external view returns (uint256);
-
-    function withdrawToManager() external;
+    function withdrawFundProfit() external;
 }

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6;
 pragma experimental ABIEncoderV2;
 
@@ -8,149 +9,226 @@ import "./FundFactory.sol";
 import "./Interfaces/IFundTrade.sol";
 import "./Libraries/MathPercentage.sol";
 import "./EFundPlatform.sol";
+import "./Types/HedgeFundInfo.sol";
+
+struct SwapInfo {
+    address from;
+    address to;
+    uint256 amountFrom;
+    uint256 amountTo;
+    uint256 timeStamp;
+    uint256 block;
+}
+
+// library TradeLibrary {
+//     function swapAllTokensIntoETH(UniswapV2Router02 router, address[] memory tokens, address to) public {
+//         for (uint256 i; i < tokens.length; i++) {
+//             address[] memory path = _createPath(
+//                 tokens[i],
+//                 router.WETH()
+//             );
+
+//             uint256 amountIn = IERC20(tokens[i]).balanceOf(
+//                 address(this)
+//             );
+
+//             if (amountIn == 0) continue;
+
+//             boughtTokenAddresses[i].deletgatecall(abi.encodeWithSignature("approve(address,uint256)",address(router),amountIn );
+
+//             router.swapExactTokensForETH(
+//                 amountIn,
+//                 0,
+//                 path,
+//                 address(this),
+//                 block.timestamp + depositTXDeadlineSeconds
+//             );
+
+//             delete boughtTokenAddresses[i];
+//         }
+//     }
+// }
 
 contract HedgeFund is IHedgeFund, IFundTrade {
+    using OZSafeMath for uint256;
+
     event NewDeposit(
         address payable indexed _depositOwner,
         uint256 indexed _id,
-        uint256 _depositAmount
+        uint256 indexed _depositAmount
     );
 
     event FundStatusChanged(uint256 _newStatus);
 
     event DepositWithdrawedBeforeActiveState(
         address payable indexed _depositOwner,
-        uint256 indexed _id
+        uint256 indexed _amount
     );
 
     event TokensSwap(
-        address _tokenFrom,
-        address _tokenTo,
+        address indexed _tokenFrom,
+        address indexed _tokenTo,
         uint256 _amountFrom,
-        uint256 _amountTo
+        uint256 indexed _amountTo
     );
 
-    event AllDepositsWithdrawed();
+    event DepositsWitdrawed(
+        address indexed _depositor,
+        uint256 indexed _amount
+    );
 
-    DepositInfo[] public deposits;
+    DepositInfo[] private deposits;
+
+    SwapInfo[] private swapsInfo;
+
+    mapping(address => uint256) public userDeposits;
+
+    address payable[] private boughtTokenAddresses;
+
+    address payable[] private allowedTokenAddresses;
 
     FundStatus public fundStatus;
 
-    IERC20 public immutable eFund;
+    IERC20 public immutable eFundToken;
 
     EFundPlatform public immutable eFundPlatform;
 
-    uint256 public immutable softCap;
+    UniswapV2Router02 public immutable router;
 
-    uint256 public immutable hardCap;
+    uint256 private immutable minimalDepositAmount;
+
+    uint256 public immutable fundCreatedAt;
+
+    uint256 private immutable fundCanBeStartedMinimumAt;
+
+    uint256 private immutable softCap;
+
+    uint256 private immutable hardCap;
+
+    uint256 private immutable managerCollateral;
 
     address payable public immutable fundManager;
 
-    uint256 public immutable fundDuration;
+    uint256 public immutable fundDurationMonths;
 
-    uint256 public fundStartTimestamp;
+    uint256 private immutable profitFee;
+
+    uint256 private fundStartTimestamp;
 
     uint256 public baseBalance;
 
     uint256 public endBalance;
 
-    uint256 public lockedManagerProfit;
+    uint256 public originalEndBalance;
 
-    address payable[] public boughtTokenAddresses;
+    uint256 public lockedFundProfit; // in eth|bnb
 
-    address payable[] public allowedTokenAddresses;
+    bool public fundProfitWitdrawed;
 
-    mapping(address => bool) public isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
+    mapping(address => bool) private isTokenBought; // this 2 mappings are needed to not iterate through arrays (that can be very big)
 
-    mapping(address => bool) public isTokenAllowed;
-
-    bool public isDepositsWithdrawed;
-
-    int256 public constant managerProfitPercentage = 90; // 90%
-
-    int256 public constant noProfitFundFee = 3; // 3% - takes only when fund manager didnt made any profit of the fund
+    mapping(address => bool) private isTokenAllowed;
 
     uint256 private constant depositTXDeadlineSeconds = 30 * 60; // 30 minutes  (time after which deposit TX will revert)
 
-    UniswapV2Router02 public immutable router;
+    uint256 private constant monthDuration = 30 days;
 
-    HedgeFundInfo public hedgeFundInfo;
-
-    modifier onlyForFundManager() {
-        require(
-            msg.sender == fundManager || msg.sender == address(this),
-            "You have not permissions to this action"
-        );
-        _;
+    /* 
+        NP - You have not permissions to this action
+        SA - Fund should be in an Active state
+        SO - Fund should be in an Opened state
+        SC - Fund should be in a Completed state
+    */
+    function onlyForFundManager() private view {
+        require(msg.sender == fundManager || msg.sender == address(this), "NP");
     }
 
-    modifier onlyInActiveState() {
-        require(
-            fundStatus == FundStatus.ACTIVE,
-            "Fund should be in an Active status"
-        );
-        _;
+    function onlyInActiveState() private view {
+        require(fundStatus == FundStatus.ACTIVE, "SA");
     }
 
-    modifier onlyInComplitedState() {
-        require(
-            fundStatus == FundStatus.COMPLETED,
-            "Fund should be in an Complited status"
-        );
-        _;
+    function onlyInOpenedState() private view {
+        require(fundStatus == FundStatus.OPENED, "SO");
     }
 
-    modifier onlyInOpenedState() {
-        require(
-            fundStatus == FundStatus.OPENED,
-            "Fund should be in an Opened status"
-        );
-        _;
+    function onlyInCompletedState() private view {
+        require(fundStatus == FundStatus.COMPLETED, "SC");
     }
 
-    constructor(
-        address payable _swapRouterContract,
-        address payable _eFundTokenContract,
-        address payable _eFundPlatform,
-        uint256 _softCap,
-        uint256 _hardCap,
-        address payable _managerAddress,
-        uint256 _duration,
-        address payable[] memory _allowedTokenAddresses,
-        HedgeFundInfo memory _info
-    ) public {
-        require(_validateDuration(_duration), "Invalid duration");
+    /* 
+        ID - Invalid duration
+    */
+    constructor(HedgeFundInfo memory _hedgeFundInfo) public {
+        require(_validateDuration(_hedgeFundInfo.duration), "ID");
 
-        router = UniswapV2Router02(_swapRouterContract);
-        eFund = IERC20(_eFundTokenContract);
-        eFundPlatform = EFundPlatform(_eFundPlatform);
+        router = UniswapV2Router02(_hedgeFundInfo.swapRouterContract);
+        eFundToken = IERC20(_hedgeFundInfo.eFundTokenContract);
+        eFundPlatform = EFundPlatform(_hedgeFundInfo.eFundPlatform);
 
-        fundManager = _managerAddress;
+        fundManager = _hedgeFundInfo.managerAddress;
         fundStatus = FundStatus.OPENED;
-        fundDuration = _duration;
-        softCap = _softCap;
-        hardCap = _hardCap;
-        allowedTokenAddresses = _allowedTokenAddresses;
-        isDepositsWithdrawed = false;
-        
-        hedgeFundInfo = _info;
+        fundDurationMonths = _hedgeFundInfo.duration;
+        softCap = _hedgeFundInfo.softCap;
+        hardCap = _hedgeFundInfo.hardCap;
+        allowedTokenAddresses = _hedgeFundInfo.allowedTokenAddresses;
+        fundCreatedAt = block.timestamp;
+        fundCanBeStartedMinimumAt =
+            block.timestamp +
+            _hedgeFundInfo.minTimeUntilFundStart;
+        minimalDepositAmount = _hedgeFundInfo.minimalDepostitAmount;
+        managerCollateral = _hedgeFundInfo.managerCollateral;
+        profitFee = _hedgeFundInfo.profitFee;
 
-        for (uint256 i; i < _allowedTokenAddresses.length; i++)
-            isTokenAllowed[_allowedTokenAddresses[i]] = true;
+        for (uint256 i; i < _hedgeFundInfo.allowedTokenAddresses.length; i++)
+            isTokenAllowed[_hedgeFundInfo.allowedTokenAddresses[i]] = true;
     }
 
-    function getCurrentBalanceInWei() external view override returns (uint256) {
-        return address(this).balance;
+    function getFundInfo()
+        public
+        view
+        returns (
+            address _fundManager,
+            uint256 _fundStartTimestamp,
+            uint256 _minDepositAmount,
+            uint256 _fundCanBeStartedAt,
+            uint256 _fundDurationInMonths,
+            uint256 _profitFee,
+            FundStatus _fundStatus,
+            uint256 _currentBalance,
+            uint256 _managerCollateral,
+            uint256 _hardCap,
+            uint256 _softCap,
+            DepositInfo[] memory _deposits
+        )
+    // uint256 _investorsAmount
+    {
+        return (
+            fundManager,
+            fundStartTimestamp,
+            minimalDepositAmount,
+            fundCanBeStartedMinimumAt,
+            fundDurationMonths,
+            profitFee,
+            fundStatus,
+            address(this).balance,
+            managerCollateral,
+            hardCap,
+            softCap,
+            deposits
+        );
+    }
+
+    function getAllDeposits() public view returns (DepositInfo[] memory) {
+        return deposits;
+    }
+
+    function getAllSwaps() public view returns (SwapInfo[] memory) {
+        return swapsInfo;
     }
 
     /// @notice get end time of the fund
     function getEndTime() external view override returns (uint256) {
-        return fundStartTimestamp + (fundDuration);
-    }
-
-    /// @notice test function, using to determine is there connection with uni|cake swap or it`s not
-    function getWETH() external view override returns (address) {
-        return router.WETH();
+        return _getEndTime();
     }
 
     function getBoughtTokensAddresses()
@@ -169,156 +247,230 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return allowedTokenAddresses;
     }
 
-    function setFundStatusActive()
-        external
-        override
-        onlyInOpenedState
-        onlyForFundManager
-    {
-        fundStatus = FundStatus.ACTIVE;
-        baseBalance = this.getCurrentBalanceInWei();
+    /* 
+        CS - Fund cannot be started at that moment
+    */
+    function setFundStatusActive() external override {
+        onlyForFundManager();
+        onlyInOpenedState();
+        require(fundCanBeStartedMinimumAt < block.timestamp, "CS");
+
+        _updateFundStatus(FundStatus.ACTIVE);
+        baseBalance = _currentBalanceWithoutManagerCollateral();
         fundStartTimestamp = block.timestamp;
 
         emit FundStatusChanged(uint256(fundStatus));
     }
 
-    function setFundStatusClosed()
-        external
-        override
-        onlyInComplitedState
-        onlyForFundManager
-    {
-        fundStatus = FundStatus.CLOSED;
+    /*
+        NF - Fund is didn`t finish yet
+    */
+    function setFundStatusCompleted() external override {
+        onlyInActiveState();
+        require(block.timestamp > _getEndTime(), "NF"); // commented for testing
+
+        _swapAllTokensIntoETH();
+
+        _updateFundStatus(FundStatus.COMPLETED);
+
+        // dosent count manager collateral
+        originalEndBalance = _currentBalanceWithoutManagerCollateral();
+
+        int256 totalFundFeePercentage;
+
+        if (originalEndBalance < baseBalance) {
+            totalFundFeePercentage = eFundPlatform.noProfitFundFee();
+        } else {
+            totalFundFeePercentage = int256(profitFee);
+        }
+
+        lockedFundProfit = uint256(
+            MathPercentage.calculateNumberFromPercentage(
+                MathPercentage.translsatePercentageFromBase(
+                    totalFundFeePercentage,
+                    100
+                ),
+                int256(originalEndBalance)
+            )
+        );
+
+        if (originalEndBalance.sub(lockedFundProfit) < baseBalance) {
+            // cannot pay all investemnts - so manager collateral counts too
+            endBalance = _currentBalance();
+        } else {
+            endBalance = _currentBalanceWithoutManagerCollateral();
+        }
+
         eFundPlatform.closeFund();
 
         emit FundStatusChanged(uint256(fundStatus));
     }
 
-    function setFundStatusCompleted() external override onlyInActiveState {
-        require(
-            block.timestamp > this.getEndTime(),
-            "Fund is didn`t finish yet"
-        );
-        // commented for testing
+    /*
+        FS - Fund should be started
+    */
+    function _swapAllTokensIntoETH() private {
+        for (uint256 i; i < boughtTokenAddresses.length; i++) {
+            address[] memory path = _createPath(
+                boughtTokenAddresses[i],
+                router.WETH()
+            );
 
-        fundStatus = FundStatus.COMPLETED;
+            uint256 amountIn = IERC20(boughtTokenAddresses[i]).balanceOf(
+                address(this)
+            );
 
-        endBalance = this.getCurrentBalanceInWei();
+            if (amountIn == 0) continue;
 
-        uint256 fundFee = uint256(
-            MathPercentage.calculateNumberFromPercentage(
-                MathPercentage.translsatePercentageFromBase(
-                    eFundPlatform.calculateManagerRewardPercentage(fundManager),
-                    eFundPlatform.percentageBase()
-                ),
-                int256(endBalance)
-            )
-        );
+            IERC20(boughtTokenAddresses[i]).approve(address(router), amountIn);
 
-        if (endBalance - fundFee > baseBalance) lockedManagerProfit = fundFee;
+            router.swapExactTokensForETH(
+                amountIn,
+                0,
+                path,
+                address(this),
+                block.timestamp + depositTXDeadlineSeconds
+            );
 
-        emit FundStatusChanged(uint256(fundStatus));
+            delete boughtTokenAddresses[i];
+        }
     }
 
     /// @notice make deposit into hedge fund. Default min is 0.1 ETH and max is 100 ETH in eFund equivalent
-    function makeDeposit() external payable override onlyInOpenedState {
-        require(
-            msg.value >= softCap,
-            "Transaction value is less then minimum deposit amout"
-        );
+    /*
+        TL - Transaction value is less then minimum deposit amout
+        MO - Max cap is overflowed. Try to send lower value
+
+    */
+    function makeDeposit() external payable override {
+        onlyInOpenedState();
+        require(msg.value >= minimalDepositAmount, "TL");
 
         require(
-            this.getCurrentBalanceInWei() + msg.value <= hardCap,
-            "Max cap in 100 ETH is overflowed. Try to send less WEI"
+            _currentBalanceWithoutManagerCollateral().add(msg.value) <= hardCap,
+            "MO"
         );
 
         DepositInfo memory deposit = DepositInfo(msg.sender, msg.value);
 
+        userDeposits[msg.sender] = userDeposits[msg.sender].add(msg.value);
+
         deposits.push(deposit);
+
+        eFundPlatform.onDepositMade(msg.sender);
     }
 
     /// @notice withdraw your deposits before trading period is started
-    function withdrawBeforeFundStarted() external override onlyInOpenedState {
-        bool haveDeposits = false;
+    /*
+        CW - Cannot withdraw fund now
+        ND - You have no deposits in this fund
+    */
+    function withdrawDepositsBeforeFundStarted() external override {
+        onlyInOpenedState();
+        require(block.timestamp > fundCanBeStartedMinimumAt, "CW");
 
-        for (uint256 i = 0; i < deposits.length; i++) {
-            if (deposits[i].depositOwner == payable(msg.sender)) {
-                haveDeposits = true;
-                _withdraw(deposits[i]);
-                emit DepositWithdrawedBeforeActiveState(msg.sender, i);
-                delete deposits[i];
-            }
-        }
-        require(haveDeposits, "You have not any deposits in hedge fund");
+        require(userDeposits[msg.sender] != 0, "ND");
+        uint256 totalDepositsAmount = userDeposits[msg.sender];
+
+        userDeposits[msg.sender] = 0;
+
+        _withdraw(DepositInfo(msg.sender, totalDepositsAmount));
+
+        emit DepositWithdrawedBeforeActiveState(
+            msg.sender,
+            totalDepositsAmount
+        );
     }
 
-    function withdraw() external override {
-        require(
-            fundStatus == FundStatus.COMPLETED ||
-                fundStatus == FundStatus.CLOSED,
-            "Fund is not complited yet"
-        );
+    /*
+        ND - Address has no deposits in this fund
+    */
+    function withdrawDepositsOf(address payable _of) external override {
+        onlyInCompletedState();
 
-        require(!isDepositsWithdrawed, "All deposits are already withdrawed");
+        require(userDeposits[_of] != 0, "ND");
 
-        for (uint256 i; i < deposits.length; i++) {
-            _withdraw(deposits[i]);
-            delete deposits[i];
-        }
+        uint256 totalDepositsAmount = userDeposits[_of];
 
-        isDepositsWithdrawed = true;
+        userDeposits[_of] = 0;
 
-        emit AllDepositsWithdrawed();
+        _withdraw(DepositInfo(_of, totalDepositsAmount));
+
+        emit DepositsWitdrawed(_of, totalDepositsAmount);
     }
 
-    function withdrawToManager() external override {
-        require(
-            isDepositsWithdrawed,
-            "Can withdraw only after all depositst were withdrawed"
-        );
+    /* 
+        B0 - Balance is 0, nothing to withdraw
+        C0 - Can withdraw only after all depositst were withdrawed
+        PW - Fund profit is already withdrawed
+    */
+    /// @dev withdraw manager and platform profits
+    function withdrawFundProfit() external override {
+        onlyInCompletedState();
+        require(!fundProfitWitdrawed, "PW");
+        require(_currentBalance() > 0, "B0");
 
-        require(address(this).balance > 0, "Balance is 0, nothing to withdraw");
+        fundProfitWitdrawed = true;
 
-        uint256 platformFeeAmount;
+        uint256 platformFee;
+        uint256 managerProfit;
 
-        if (baseBalance >= endBalance) {
-            // take 3% fee
-            platformFeeAmount = uint256(
-                MathPercentage.calculateNumberFromPercentage(
-                    MathPercentage.translsatePercentageFromBase(
-                        noProfitFundFee,
-                        100
-                    ),
-                    int256(address(this).balance)
-                )
-            );
+        if (baseBalance >= originalEndBalance) {
+            platformFee = lockedFundProfit;
         } else {
-            // otherwise, 90% to fund manager, 10% - to eFund platform
-            platformFeeAmount = uint256(
+            // otherwise
+            platformFee = uint256(
                 MathPercentage.calculateNumberFromPercentage(
                     MathPercentage.translsatePercentageFromBase(
-                        managerProfitPercentage,
+                        100 -
+                            eFundPlatform.calculateManagerRewardPercentage(
+                                fundManager
+                            ),
                         100
                     ),
-                    int256(address(this).balance)
+                    int256(lockedFundProfit)
                 )
             );
         }
+
+        // if manager > 0 means that fund was succeed and manager take some profit from it
+        managerProfit = lockedFundProfit.sub(platformFee);
 
         // send fee to eFundPlatform
-        payable(address(eFundPlatform)).transfer(platformFeeAmount);
+        if (_currentBalance() >= platformFee)
+            payable(address(eFundPlatform)).transfer(platformFee);
 
         // sending the rest to the fund manager
-        fundManager.transfer(this.getCurrentBalanceInWei());
+        if (managerProfit > 0 && _currentBalance() >= managerProfit) {
+            fundManager.transfer(managerProfit);
+        }
+
+        // withdraw manager collaterall
+        // if originalEndBalance == endBalance - manager collateral doesnt included into endBalance
+        if (
+            managerProfit > 0 &&
+            originalEndBalance == endBalance &&
+            _currentBalance() >= managerCollateral
+        ) {
+            fundManager.transfer(managerCollateral);
+        }
     }
 
-    /* trading section */
+    /*  ERR MSG ABBREVIATION
+
+        P0 : Path must be >= 2
+        T0 : Trading with not allowed tokens
+        T1 : You must to own {tokenFrom} first
+        T2 : Output amount is lower then {amountOutMin}
+    */
     function swapERC20ToERC20(
         address[] calldata path,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        require(path.length >= 2, "Path must be >= 2");
+    ) external override {
+        onlyForFundManager();
+        onlyInActiveState();
+        require(path.length >= 2, "P0");
 
         address tokenFrom = path[0];
         address tokenTo = path[path.length - 1];
@@ -328,12 +480,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
                 allowedTokenAddresses.length == 0
                     ? true // if empty array specified, all tokens are valid for trade
                     : isTokenAllowed[path[i]],
-                "Trading with not allowed tokens"
+                "T0"
             );
-            require(
-                isTokenBought[tokenFrom],
-                "You must to own {tokenFrom} first"
-            );
+            require(isTokenBought[tokenFrom], "T1");
         }
 
         // how much {tokenTo} we can buy with {tokenFrom} token
@@ -341,10 +490,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             path.length - 1
         ];
 
-        require(
-            amountOut >= amountOutMin,
-            "Output amount is lower then {amountOutMin}"
-        );
+        require(amountOut >= amountOutMin, "T2");
 
         IERC20(tokenFrom).approve(address(router), amountIn);
 
@@ -353,7 +499,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             amountOut,
             path,
             address(this),
-            block.timestamp + depositTXDeadlineSeconds
+            block.timestamp.add(depositTXDeadlineSeconds)
         );
 
         if (!isTokenBought[tokenTo]) {
@@ -361,26 +507,33 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             isTokenBought[tokenTo] = true;
         }
 
-        emit TokensSwap(tokenFrom, tokenTo, amountIn, amounts[path.length - 1]);
-        return amounts[1];
+        _onTokenSwapAction(
+            tokenFrom,
+            tokenTo,
+            amountIn,
+            amounts[path.length - 1]
+        );
     }
 
+    /*
+        NO - You need to own {tokenFrom} first
+        OL - Output amount is lower then {amountOutMin}
+    */
     function swapERC20ToETH(
         address payable tokenFrom,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
-        require(isTokenBought[tokenFrom], "You need to own {tokenFrom} first");
+    ) external override {
+        onlyForFundManager();
+        onlyInActiveState();
+        require(isTokenBought[tokenFrom], "NO");
 
         address[] memory path = _createPath(tokenFrom, router.WETH());
 
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
 
-        require(
-            amountOut >= amountOutMin,
-            "Output amount is lower then {amountOutMin}"
-        );
+        require(amountOut >= amountOutMin, "OL");
 
         IERC20(tokenFrom).approve(address(router), amountIn);
 
@@ -392,20 +545,28 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             block.timestamp + depositTXDeadlineSeconds
         );
 
-        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-        return amounts[1];
+        _onTokenSwapAction(path[0], path[1], amountIn, amounts[1]);
     }
 
+    /*
+        IA - Insufficient amount of ETH
+        NA - Trading with not allowed tokens
+        OL - Output amount is lower then {amountOutMin}
+    */
     function swapETHToERC20(
         address payable tokenTo,
         uint256 amountIn,
         uint256 amountOutMin
-    ) external override onlyInActiveState onlyForFundManager returns (uint256) {
+    ) external override {
+        onlyForFundManager();
+        onlyInActiveState();
+        require(amountIn < _currentBalanceWithoutManagerCollateral(), "IA");
+
         require(
             allowedTokenAddresses.length == 0
                 ? true // if empty array specified, all tokens are valid for trade
                 : isTokenAllowed[tokenTo],
-            "Trading with not allowed tokens"
+            "NA"
         );
 
         address[] memory path = _createPath(router.WETH(), tokenTo);
@@ -413,10 +574,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         // how much {tokenTo} we can buy with ether
         uint256 amountOut = router.getAmountsOut(amountIn, path)[1];
 
-        require(
-            amountOut >= amountOutMin,
-            "Output amount is lower then {amountOutMin}"
-        );
+        require(amountOut >= amountOutMin, "OL");
         uint256[] memory amounts = router.swapETHForExactTokens{
             value: amountIn
         }(
@@ -430,67 +588,71 @@ contract HedgeFund is IHedgeFund, IFundTrade {
             boughtTokenAddresses.push(tokenTo);
             isTokenBought[tokenTo] = true;
         }
-
-        emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-
-        return amounts[1];
+        _onTokenSwapAction(path[0], path[1], amountIn, amounts[1]);
     }
 
-    function swapAllTokensIntoETH() public onlyForFundManager {
-        require(fundStatus != FundStatus.OPENED, "Fund should be started");
-
-        for (uint256 i; i < boughtTokenAddresses.length; i++) {
-            address[] memory path = _createPath(
-                boughtTokenAddresses[i],
-                router.WETH()
-            );
-
-            uint256 amountIn = IERC20(boughtTokenAddresses[i]).balanceOf(
-                address(this)
-            );
-
-            IERC20(boughtTokenAddresses[i]).approve(address(router), amountIn);
-
-            uint256[] memory amounts = router.swapExactTokensForETH(
-                amountIn,
-                0,
-                path,
-                address(this),
-                block.timestamp + depositTXDeadlineSeconds
-            );
-
-            emit TokensSwap(path[0], path[1], amountIn, amounts[1]);
-
-            isTokenBought[boughtTokenAddresses[i]] = false;
-            delete boughtTokenAddresses[i];
-        }
-    }
-
-    function _withdraw(DepositInfo storage info) private {
-        if (baseBalance == 0) {
-            info.depositOwner.transfer(info.depositAmount); // if baseBalance 0 - it`s a withdrawBeforeFundStated call
+    function _withdraw(DepositInfo memory info) private {
+        if (fundStatus == FundStatus.OPENED) {
+            // if opened - it`s withdrawDepositsBeforeFundStarted call
+            info.depositOwner.transfer(info.depositAmount);
             return;
         }
 
-        int256 percentage = MathPercentage.calculateNumberFromNumberPercentage(
-            int256(info.depositAmount),
-            int256(baseBalance)
-        );
-
         info.depositOwner.transfer(
             uint256(
-                int256(info.depositAmount) +
-                    MathPercentage.calculateNumberFromPercentage(
-                        percentage,
-                        int256(endBalance) -
-                            int256(baseBalance) -
-                            int256(lockedManagerProfit)
-                    )
+                MathPercentage.calculateNumberFromPercentage(
+                    MathPercentage.calculateNumberFromNumberPercentage(
+                        int256(info.depositAmount),
+                        int256(baseBalance)
+                    ),
+                    int256(endBalance.sub(lockedFundProfit))
+                )
             )
         );
     }
 
-    /// @dev create path array for uni|cake swap
+    /// @return balance of current fund without managerCollateral
+    function _currentBalanceWithoutManagerCollateral()
+        private
+        view
+        returns (uint256)
+    {
+        return _currentBalance().sub(managerCollateral);
+    }
+
+    function _currentBalance() private view returns (uint256) {
+        return address(this).balance;
+    }
+
+    function _updateFundStatus(FundStatus newFundStatus) private {
+        fundStatus = newFundStatus;
+    }
+
+    function _getEndTime() private view returns (uint256) {
+        return fundStartTimestamp + (fundDurationMonths.mul(monthDuration));
+    }
+
+    function _onTokenSwapAction(
+        address _tokenFrom,
+        address _tokenTo,
+        uint256 _amountFrom,
+        uint256 _amountTo
+    ) private {
+        emit TokensSwap(_tokenFrom, _tokenTo, _amountFrom, _amountTo);
+
+        swapsInfo.push(
+            SwapInfo(
+                _tokenFrom,
+                _tokenTo,
+                _amountFrom,
+                _amountTo,
+                block.timestamp,
+                block.number
+            )
+        );
+    }
+
+    /// @dev create path array for uni|cake|etc.. swap
     function _createPath(address tokenFrom, address tokenTo)
         private
         pure
@@ -504,10 +666,9 @@ contract HedgeFund is IHedgeFund, IFundTrade {
         return path;
     }
 
-    // validate hedge fund active state duration. Only valid 1,2,3,6 months
+    // validate hedge fund active state duration. Only valid: 0(testing),1,2,3,6 months
     function _validateDuration(uint256 _d) private pure returns (bool) {
-        return _d > 0;
-        //return _d == 1 || _d == 2 || _d == 3 || _d == 6;
+        return _d == 0 || _d == 1 || _d == 2 || _d == 3 || _d == 6;
     }
 
     // Functions to receive Ether
@@ -518,8 +679,7 @@ contract HedgeFund is IHedgeFund, IFundTrade {
     enum FundStatus {
         OPENED,
         ACTIVE,
-        COMPLETED,
-        CLOSED
+        COMPLETED
     }
 
     struct DepositInfo {

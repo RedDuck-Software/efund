@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: MIT
+pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6; // because of uni|cake swap
 pragma experimental ABIEncoderV2;
 
@@ -7,54 +8,27 @@ import "./HedgeFund.sol";
 import "./Interfaces/IFundFactory.sol";
 import "./Tokens/ERC20/eFund.sol";
 
+/* 
+    ERR MSG ABBREVIATION
+CE0 : Hard cap must be bigger than soft cap
+CE1 : Invalid argument: Value sended must be <= hardCap
+
+*/
 contract FundFactory is IFundFactory {
-    
+    function createFund(HedgeFundInfo calldata _hedgeFundInfo) external payable override returns (address) {
+        require(_hedgeFundInfo.hardCap > _hedgeFundInfo.softCap, "CE0");
 
-    function createFund(
-        address payable _swapRouterContract,
-        address payable _eFundToken,
-        address payable _fundOwner,
-        address payable _eFundPlatform,
-        uint256 _fundDuration,
-        uint256 _softCap,
-        uint256 _hardCap,
-        address payable[] calldata allowedTokens,
-        HedgeFundInfo calldata _info
-    ) external payable override returns (address) {
-        require(
-            _hardCap > _softCap,
-            "Hard cap must be bigger than soft cap"
-        );
 
         require(
-            msg.value >= _softCap && msg.value <= _hardCap,
-            "To create fund you need to send minimum 0.1 ETH and maximum 100 ETH"
+            msg.value <= _hedgeFundInfo.hardCap,
+            "CE1"
         );
 
-        HedgeFund newFund =
-            new HedgeFund(
-                _swapRouterContract,
-                _eFundToken,
-                _eFundPlatform,
-                _softCap,
-                _hardCap,
-                _fundOwner,
-                _fundDuration,
-                allowedTokens,
-                _info
-            );
+        HedgeFund newFund = new HedgeFund(_hedgeFundInfo);
+        
+        payable(address(newFund)).transfer(msg.value);
 
-        _sendEth(payable(address(newFund)), msg.value);
 
         return address(newFund);
-    }
-
-    // todo: ask guys in chats
-    function _sendEth(address payable _to, uint256 _value)
-        private
-        returns (bool)
-    {
-        (bool sent, ) = _to.call{value: _value}("");
-        require(sent, "could not send ether to the fund");
     }
 }

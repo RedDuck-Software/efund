@@ -15,7 +15,8 @@
     "@uniswap/v2-core": "^1.0.1",
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "hardhat-contract-sizer": "^2.0.3",
-    "pancakeswap-peripheral": "^1.1.0-beta.0"
+    "pancakeswap-peripheral": "^1.1.0-beta.0",
+    "truffle-contract-size": "^2.0.1"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.2",
@@ -23,6 +24,6 @@
     "chai": "^4.3.4",
     "ethereum-waffle": "^3.3.0",
     "ethers": "^5.3.0",
-    "hardhat": "^2.3.0"
+    "hardhat": "^2.5.0"
   }
 }

@@ -8,20 +8,12 @@ let config = require("./secrets.json");
  * @type import('hardhat/config').HardhatUserConfig
  */
 module.exports = {
-  solidity: {
-    version: "0.6.6",
-    settings: {
-      optimizer: { 
-        enabled: true, 
-        runs: 1000 
-      } 
-    }
-  },
-  paths: {
-    sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts"
+  solidity: "0.6.6",
+  settings: {
+    optimizer: {
+      enabled: true,
+      runs: 1,
+    },
   },
   networks: {
     development: {
