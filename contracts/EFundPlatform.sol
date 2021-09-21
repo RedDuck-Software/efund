@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6;
+pragma experimental ABIEncoderV2;
 
 import "./SharedImports.sol";
 import "./FundFactory.sol";
@@ -131,6 +132,7 @@ contract EFundPlatform {
     function createFund(
         address payable _swapRouter,
         uint256 _fundDurationInMonths,
+
         uint256 _softCap,
         uint256 _hardCap,
         uint256 _profitFee,
@@ -184,6 +186,7 @@ contract EFundPlatform {
                 _allowedTokens
             )
         );
+
 
         funds.push(HedgeFund(payable(newFundAddress)));
         managerFunds[msg.sender].push(HedgeFund(payable(newFundAddress)));
