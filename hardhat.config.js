@@ -18,6 +18,7 @@ module.exports = {
   networks: {
     development: {
       url: "http://127.0.0.1:8545",
+      gas: 8272652
     },
     rinkeby: {
       url: `https://rinkeby.infura.io/v3/${config.projectId}`,

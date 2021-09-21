@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma experimental ABIEncoderV2;
 pragma solidity ^0.6.6;
+pragma experimental ABIEncoderV2;
 
 import "./SharedImports.sol";
 import "./FundFactory.sol";
@@ -113,7 +114,8 @@ contract EFundPlatform {
             uint256 _minimumTimeUntillFundStart,
             uint256 _maximumTimeUntillFundStart,
             uint256 _minimumProfitFee,
-            uint256 _maximumProfitFee
+            uint256 _maximumProfitFee,
+            uint256 _minimalManagerCollateral
         )
     {
         return (
@@ -122,13 +124,15 @@ contract EFundPlatform {
             minimumTimeUntillFundStart,
             maximumTimeUntillFundStart,
             minimumProfitFee,
-            maximumProfitFee
+            maximumProfitFee,
+            minimalManagerCollateral
         );
     }
 
     function createFund(
         address payable _swapRouter,
         uint256 _fundDurationInMonths,
+
         uint256 _softCap,
         uint256 _hardCap,
         uint256 _profitFee,
@@ -182,6 +186,7 @@ contract EFundPlatform {
                 _allowedTokens
             )
         );
+
 
         funds.push(HedgeFund(payable(newFundAddress)));
         managerFunds[msg.sender].push(HedgeFund(payable(newFundAddress)));
@@ -288,10 +293,11 @@ contract EFundPlatform {
             .completedFunds = managerFundActivity[managerAddresss]
             .completedFunds
             .add(1);
+
         managerFundActivity[managerAddresss]
             .successCompletedFunds = managerFundActivity[managerAddresss]
             .successCompletedFunds
-            .add(fund.endBalance() > fund.baseBalance() ? 1 : 0);
+            .add(fund.originalEndBalance() > fund.baseBalance() ? 1 : 0);
     }
 
     function claimHolderReward() public {
